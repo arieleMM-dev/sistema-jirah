@@ -1,0 +1,56 @@
+Desarrolla este proyecto tomando en cuenta el documento de requisitos funcionales que son tres con subcasos Especificacion_Casos_Uso_Jirah.pdf y estas instrucciones de aca:
+
+1. Arquitectura de Software Propuesta
+Para este sistema, la mejor opción es una Arquitectura Cliente-Servidor (Web) combinada con un enfoque Offline-First y una Arquitectura en Capas (Layered Architecture) en el Backend.
+
+Justificación:
+
+Enfoque Offline-First (Frontend): Las fincas agrícolas carecen de conectividad estable. Utilizar una arquitectura basada en PWA (Progressive Web App) con Service Workers y almacenamiento local (IndexedDB) asegura que el proceso crítico (registrar la cosecha y clasificarla) nunca se detenga, almacenando los datos en el dispositivo hasta recuperar la señal.
+
+Arquitectura en Capas / Clean Architecture (Backend con Next.js y Prisma): Para mantener el código mantenible y aplicar pruebas unitarias (TDD) en el futuro, el backend no debe mezclar la lógica de la base de datos con las rutas web. Se dividirá en:
+
+Capa de Presentación: Componentes de React.
+
+Capa de Controladores (API Routes): Reciben las peticiones HTTP.
+
+Capa de Servicios (Lógica de Negocio): Donde vivirán las matemáticas del margen de error del ±4% y los cálculos de la tara de las gavetas.
+
+Capa de Acceso a Datos (Repositorio): Donde Prisma interactúa con PostgreSQL.
+
+2. Selección y Justificación de Patrones de Diseño
+De la lista que mencionas, seleccionaremos los cuatro patrones más estratégicos que resuelven problemas reales y específicos que ya detectamos en el análisis de la finca.
+
+A. Patrón State (Estado)
+¿Para qué se usará? Para gestionar el ciclo de vida de los datos de las cosechas registrados sin internet.
+
+Justificación: Un registro de cosecha en el campo pasa por diferentes comportamientos según su estado de red. El patrón State permite que un objeto altere su comportamiento cuando su estado interno cambia.
+
+Aplicación en el proyecto: Un pesaje bruto tendrá un estado PENDING (solo vive en la tablet), luego pasará a SYNCING (cuando el Service Worker detecta internet y lo envía), y finalmente a SYNCED (bloqueando su edición local porque ya está respaldado en PostgreSQL).
+
+B. Patrón Strategy (Estrategia)
+¿Para qué se usará? Para encapsular las fórmulas matemáticas de validación y cálculo de pesos.
+
+Justificación: El cliente tiene una regla estricta: El margen de error permitido entre cosecha bruta y clasificación poscosecha es del ±4%. Sin embargo, el día de mañana podrían decidir que para la pitahaya de exportación especial el margen sea del 2%, o que el cálculo de la tara cambie si cambian el material de la gaveta de 1.70kg a 1.50kg. El patrón Strategy define una familia de algoritmos (estrategias de cálculo), los encapsula y los hace intercambiables sin tocar el código principal del controlador.
+
+Aplicación en el proyecto: Una interfaz ICalculoMargenError con una estrategia concreta CalculoMargenPitahayaNormalStrategy.
+
+C. Patrón Observer (Observador)
+¿Para qué se usará? Para la reactividad de la interfaz de usuario ante los cambios de conectividad y la finalización de las sincronizaciones.
+
+Justificación: Cuando el agricultor recupere el internet, el sistema debe sincronizar los datos en segundo plano y la pantalla debe actualizarse automáticamente para mostrar el mensaje "Sincronizado", sin que el usuario tenga que recargar la página.
+
+Aplicación en el proyecto: El Service Worker actuará como el "Sujeto" (Publisher) que monitorea la red. Los componentes de React (como el ícono de la nube en la cabecera o las tablas de datos) serán los "Observadores" (Subscribers). Cuando vuelve el internet, el sujeto notifica a los observadores para que rendericen los íconos de color verde.
+
+D. Patrón Adapter (Adaptador)
+¿Para qué se usará? Para estandarizar la comunicación entre la base de datos local del navegador (IndexedDB) y la API del servidor.
+
+Justificación: Las estructuras de datos que se guardan temporalmente en el caché de la tablet suelen tener formatos diferentes a los que exige el ORM Prisma en el backend. El patrón Adapter convierte la interfaz de una clase en otra que el cliente espera.
+
+Aplicación en el proyecto: Se creará un OfflinePayloadAdapter que tomará el JSON crudo almacenado en el celular del trabajador y lo formateará, limpiará y adaptará a la estructura relacional exacta que esperan las tablas de PostgreSQL antes de enviarlo por la red.
+
+3. Patrones Descartados (Y por qué no usarlos)
+Para justificar una propuesta como un experto, también debes explicar por qué descartas ciertas herramientas.
+
+Decorator: Aunque es útil para agregar funcionalidades dinámicas (como añadir logs de auditoría a una función), en nuestro entorno actual con Next.js y middlewares modernos, muchas de estas interceptaciones se resuelven nativamente sin necesidad de implementar el patrón clásico de envoltura de objetos a mano.
+
+Template Method: Podría usarse para definir el esqueleto general de la "Sincronización", pero el patrón Strategy nos da mayor flexibilidad para este proyecto al permitirnos inyectar diferentes validaciones matemáticas por inyección de dependencias en lugar de basarnos en la herencia rígida de clases.

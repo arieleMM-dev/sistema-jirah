@@ -1,0 +1,779 @@
+﻿=== PAGINA 1 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  1 UNIVERSIDAD DE LAS FUERZAS ARMADAS "ESPE"  
+Departamento de Ciencias de la Computaci├│n  
+Ingenier├¡a de Software  
+Documento de Especificaci├│n de  
+Requisitos y Casos de Uso  
+Sistema de Gesti├│n Agr├¡cola - Proyecto Jirah  
+Asignatura:  Ingenier├¡a de Requisitos de Software  
+Proyecto:  Control, Gesti├│n y Trazabilidad de Cosechas de Finca Jirah  
+Autor:  Ariel Esteban Morillo Mosquera  
+Finca de Aplicaci├│n:  Finca Jirah (Pitahaya Amarilla)  
+Lista Maestra de Requisitos Funcionales y Casos de 
+Uso 
+ 
+ 
+ 
+=== PAGINA 2 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  2 REQ -01 / CU -01: Acceder al sistema  
+Ôùª REQ -01.1 / CU -01.1: Iniciar sesi├│n  
+Ôùª REQ -01.2 / CU -01.2: Recuperar contrase├▒a  
+REQ -02 / CU -02: Configurar perfil de usuario  
+Ôùª REQ -02.1 / CU -02.1: Actualizar datos  
+Ôùª REQ -02.2 / CU -02.2: Modificar contrase├▒a  
+Ôùª REQ -02.3 / CU -02.3: Modificar preferencias de usuario  
+REQ -03 / CU -03: Gestionar agricultores  
+Ôùª REQ -03.1 / CU -03.1: Crear agricultor  
+Ôùª REQ -03.2 / CU -03.2: Consultar de agricultor  
+Ôùª REQ -03.3 / CU -03.3: Editar de agricultor  
+Ôùª REQ -03.4 / CU -03.4: Desactivar agricultor  
+REQ -04 / CU -04: Configurar cat├ílogos de la finca  
+Ôùª REQ -04.1 / CU -04.1: Gestionar campa├▒as (C├│digo, Funda, Tara base de 1.70kg)  
+Ôùª REQ -04.2 / CU -04.2: Gestionar lotes (Mantenimiento de ├íreas de cultivo)  
+Ôùª REQ -04.3 / CU -04.3: Gestionar compradores (Mantenimiento de exportadores y mayoristas)  
+REQ -05 / CU -05: Registrar transacciones en campo (Core del Negocio)  
+Ôùª REQ -05.1 / CU -05.1: Registrar pesaje bruto (Cosecha cruda por lote)  
+Ôùª REQ -05.2 / CU -05.2: Registrar clasificaci├│n poscosecha (Modelado de mermas y categor├¡as)  
+Ôùª REQ -05.3 / CU -05.3: Registrar ajuste de comprador (Trazabilidad de rechazos en destino)  
+Ôùª REQ -05.4 / CU -05.4: Sincronizar datos offline (Estrategia PWA - IndexedDB a PostgreSQL)  
+REQ -06 / CU -06: Analizar productividad  
+Ôùª REQ -06.1 / CU -06.1: Visualizar dashboard interactivo  
+Ôùª REQ -06.1.1 / CU -06.1.1: Filtrar m├®tricas por rango de fechas <<extend>>  
+Ôùª REQ -06.1.2 / CU -06.1.2: Filtrar m├®tricas por lote <<extend>>  
+Ôùª REQ -06.1.3 / CU -06.1.3: Filtrar m├®tricas por campa├▒a/funda <<extend>>  
+Ôùª REQ -06.1.4 / CU -06.1.4: Generar reporte exportable (PDF/Excel) <<extend>>  
+=== PAGINA 3 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  3 M├│dulo 1: Acceso al Sistema  
+1.1 Diagrama de Casos de Uso (Estructura de Bloques)  
+ 
+ 1.2 Especificaci├│n Nivel 0  
+C├│digo y Nombre  CU-01: Acceder al sistema  
+Requisito  REQ -01 
+Actor(es)  Administrador, Agricultor  
+Descripci├│n  Permite a los usuarios registrados autenticarse de manera segura para acceder a 
+las funcionalidades del sistema seg├║n su nivel de privilegios, e incluye el 
+mecanismo de recuperaci├│n en caso de p├®rdida de credenciales.  
+
+=== PAGINA 4 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  4  1.3 Especificaciones de Nivel 1  
+C├│digo y Nombre  CU-01.1: Iniciar sesi├│n  
+Requisito  REQ -01.1  
+Actor  Administrador, Agricultor  
+Precondici├│n  El usuario posee una cuenta registrada y activa . 
+Flujo Normal  1. El usuario ingresa a la pantalla principal de login.  
+2. El sistema solicita el correo electr├│nico y la contrase├▒a.  
+3. El usuario ingresa sus credenciales y presiona "Ingresar".  
+ 
+4. El sistema cifra la contrase├▒a ingresada y la compara con el hash de la 
+base de datos.  
+ 
+5. El sistema verifica que el estado de la cuenta sea "Activo".  
+ 
+6. El sistema genera el token de sesi├│n y redirige al usuario a la pantalla 
+correspondiente a su rol (Dashboard para Admin, Pantalla de Recolecci├│n 
+para Agricultor).  
+ 
+Excepciones  E.1 Credenciales inv├ílidas (Paso 4):  El sistema muestra el mensaje "Correo o 
+contrase├▒a incorrectos"  y limpia el campo de la contrase├▒a. No se especifica 
+cu├íl de los dos datos fall├│ por seguridad.  
+E.2 Cuenta inactiva (Paso 5):  El sistema bloquea el acceso y muestra el 
+mensaje "Su cuenta se encuentra desactivada. Comun├¡quese con el 
+administrador de la finca" . 
+ 
+C├│digo y Nombre  CU-01.2: Recuperar contrase├▒a  
+Requisito  REQ -01.2  
+Actor  Usuario  
+=== PAGINA 5 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  5 Precondici├│n  
+El usuario se encuentra fuera de la sesi├│n y dispone de un correo electr├│nico 
+v├ílido registrado.  
+Flujo Normal  1. El usuario selecciona la opci├│n "┬┐Olvid├│ su contrase├▒a?" en la pantalla de 
+login.  
+2. El sistema solicita el correo electr├│nico asociado a la cuenta.  
+3. El usuario ingresa el correo y presiona "Enviar enlace".  
+4. El sistema valida la existencia del correo, genera un token temporal 
+encriptado (v├ílido por 1 hora) y env├¡a el enlace de recuperaci├│n.  
+5. El usuario accede al enlace recibido en su correo.  
+ 
+6. El sistema muestra la pantalla de restablecimiento solicitando la nueva 
+contrase├▒a y su confirmaci├│n.  
+ 
+7. El usuario ingresa la nueva contrase├▒a.  
+ 
+8. El sistema valida las pol├¡ticas de complejidad y actualiza la credencial.  
+ 
+9. El sistema muestra "Contrase├▒a actualizada exitosamente"  y redirige al 
+login.  
+Excepciones  
+E.1 Cuenta Inexistente:  Si el correo no existe, el sistema muestra el mensaje 
+est├índar: "Si el correo es v├ílido, recibir├í un enlace de recuperaci├│n"  para evitar 
+filtraciones de cuentas.  
+E.2 Token Caducado:  Si el usuario ingresa pasado el tiempo l├¡mite, el sistema 
+indica: "El enlace de recuperaci├│n ha expirado" . 
+=== PAGINA 6 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  6 M├│dulo 2: Configura r Perfil  
+ 
+C├│digo y Nombre  CU-02: Configurar perfil de usuario  
+Requisito  REQ -02 
+Actor(es)  Administrador o Agricultor  
+Descripci├│n  
+Permite al usuario activo autogestionar su informaci├│n de contacto variable 
+(tel├®fono, fotograf├¡a), actualizar sus claves de acceso y parametrizar las 
+preferencias est├®ticas de la PWA.  
+2.1  
+ Diagrama de Casos de Uso (Estructura de Bloques  
+) 
+ 
+2.2  
+ Especificaci├│n Nivel  
+0 
+
+=== PAGINA 7 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  7  2.3 Especificaciones de Nivel 1  
+ 
+ 
+C├│digo y Nombre  CU-02.2: Modificar contrase├▒a  
+Requisito  REQ -02.2  
+Flujo Normal  1. El usuario selecciona "Cambiar Contrase├▒a" dentro de su perfil.  
+2. El sistema solicita la clave actual, la nueva clave y su re -confirmaci├│n.  
+3. El usuario llena los campos y confirma.  
+4. El sistema valida que la contrase├▒a actual sea id├®ntica al hash persistido.  
+5. El sistema eval├║a la robustez de la nueva clave (m├¡nimo 8 caracteres, 1 
+may├║scula, 1 n├║mero).  
+6. El sistema guarda los cambios de la nueva contrase├▒a.  
+Excepciones  E.1 Contrase├▒a Actual Err├│nea:  El sistema cancela el proceso mostrando: "La 
+contrase├▒a actual provista es incorrecta" . 
+ 
+C├│digo y Nombre  CU-02.3: Modificar preferencias  
+Requisito  REQ -02.3  C├│digo y Nombre  CU-02.1: Actualizar datos  
+Requisito  REQ -02.1  
+Flujo Normal  1. El usuario se dirige a "Mi Perfil".  
+2. El sistema muestra los datos mutables (Tel├®fono y Avatar/Foto). Los datos  
+estructurales como c├®dula, rol y nombres aparecen bloqueados en modo lectura.  
+3. El usuario carga una foto o edita el tel├®fono y presiona "Guardar".  
+4. El sistema valida el formato de imagen (PNG/JPG < 2MB) y formato 
+num├®rico  del tel├®fono.  
+5. El sistema guarda los cambios y refresca la interfaz gr├ífica.  
+Excepciones  
+E.1 Archivo Inv├ílido:  Si el archivo no es una imagen o supera el peso permitido, 
+se arroja el error: "Formato de archivo no soportado o tama├▒o excedido" . 
+=== PAGINA 8 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  8 Flujo Normal  
+1. El usuario interact├║a con el selector de apariencia (Tema Claro / Tema Oscuro). 
+2. El sistema altera la  apariencia de la interfaz.  
+3. El sistema guarda  la variable en ` localStorage` y env├¡a una petici├│n en segundo 
+plano para sincronizar la preferencia en la tabla de usuarios.  
+Excepciones  
+E.1 Sin Internet:  Si ocurre en desconexi├│n, la configuraci├│n se mantiene en el 
+almacenamiento local (`localStorage`) y se omite la llamada al servidor de forma 
+transparente.  
+M├│dulo 3: Gesti├│n de Personal (Expedientes)  
+3.1 Diagrama de Casos de Uso (Estructura de Bloques)  
+ 
+ 3.2 Especificaci├│n Nivel 0  
+C├│digo y Nombre  CU-03: Gestionar  agricultores  
+Requisito  REQ -03 
+Actor(es)  Administrador  
+
+=== PAGINA 9 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  9 Descripci├│n  
+M├│dulo exclusivo de gesti├│n de recursos humanos que permite estructurar la ficha 
+contractual inalterable de los trabajadores (C├®dula, Nombres, Apellidos, Rol de 
+Campo).  
+ 3.3 Especificaciones de Nivel 1  
+C├│digo y Nombre  CU-03.1: Cr ear agricultor  
+Requisito  REQ -03.1  
+Actor  Administrador  
+Precondici├│n  El administrador ha iniciado sesi├│n con nivel de privilegios admin  
+Flujo Normal  1. El administrador ingresa al m├│dulo de "Personal" y hace clic en "Nuevo 
+Registro".  
+2. El sistema muestra un formulario en blanco solicitando: Nombres, 
+Apellidos, C├®dula de Identidad (10 d├¡gitos), Correo y Rol 
+(Agricultor/Clasificador).  
+3. El administrador ingresa la informaci├│n y presiona "Guardar".  
+4. El sistema valida que la c├®dula cumpla el algoritmo de verificaci├│n y no 
+exista duplicidad de c├®dula o correo en la base de datos.  
+5. El sistema genera autom├íticamente una contrase├▒a temporal 
+alfanum├®rica.  
+6. El sistema crea el usuario y env├¡a la credencial por correo electr├│nico.  
+7. El sistema muestra el mensaje "Agricultor creado exitosamente" . 
+ 
+Excepciones  
+E.1 C├®dula Inv├ílida o Duplicada:  El sistema frena el almacenamiento arrojando 
+el error: "Documento de identidad no v├ílido o ya registrado en la finca" . 
+C├│digo y Nombre  CU-03.2: Consultar agricultor  
+Requisito  REQ -03.2  
+=== PAGINA 10 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  10 Actor  Administrador  
+Precondici├│n  Existen registros de agricultores en la base de datos.  
+Flujo Normal  1. El administrador accede al m├│dulo de Personal.  
+2. El sistema muestra una barra de b├║squeda din├ímica.  
+ 
+3. El administrador digita el nombre, apellido o c├®dula del trabajador.  
+ 
+4. El sistema filtra en tiempo real mostrando las coincidencias en una 
+tabla (Listado en $<1$ segundo).  
+ 
+5. El administrador selecciona la fila deseada.  
+ 
+6. El sistema despliega el expediente completo con el estado de la 
+cuenta, datos fijos y ├║ltimo acceso.  
+ 
+Excepciones (Flujo 
+Alternativo)  E.1 Sin resultados (Paso 4): Si la b├║squeda no coincide, el sistema muestra la tabla 
+vac├¡a con el texto "No se encontraron agricultores con ese criterio".  
+C├│digo y Nombre  CU-03.3: Editar agricultor  
+Requisito  REQ -03.3  
+Actor  Administrador de la Finca  
+Precondici├│n  El administrador ha ejecutado previamente el CU -03.2 y localizado al empleado.  
+=== PAGINA 11 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  11 Flujo Normal  1. En la vista del expediente, el administrador hace clic en "Editar Datos".  
+2. El sistema habilita los campos de texto para Nombres, Apellidos y 
+Correo. Nota: El campo C├®dula y Contrase├▒a permanecen estrictamente 
+bloqueados.  
+3. El administrador corrige el error tipogr├ífico y presiona "Actualizar".  
+4. El sistema valida los formatos y verifica que el nuevo correo no 
+pertenezca a otro usuario.  
+ 
+5. El sistema guarda la actualizaci├│n (Transacci├│n ACID).  
+ 
+6. Muestra el mensaje: "Expediente actualizado" . 
+ 
+Excepciones (Flujo 
+Alternativo)  
+E.1 Correo en uso (Paso 4):  El sistema rechaza la edici├│n y notifica "El correo 
+especificado ya pertenece a otra cuenta activa" . 
+C├│digo y Nombre  CU-03.4 Desactivar  agricultor  
+Requisito  REQ -03.4 
+Actor  Administrador  
+Precondici├│n  El agricultor existe y est├í en estado activo.  
+=== PAGINA 12 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  12 Flujo Normal  1. En la vista del expediente, el administrador hace clic en el bot├│n de 
+peligro "Desactivar Cuenta".  
+2. El sistema despliega un modal advirtiendo: "┬┐Est├í seguro? Este 
+usuario no podr├í acceder al sistema, pero su historial de cosechas se 
+mantendr├í intacto" . 
+3. El administrador confirma la acci├│n.  
+4. El sistema ejecuta un Soft-Delete  (cambia la bandera isActive  a 
+falso en la base de datos).  
+5. El sistema revoca inmediatamente los tokens de sesi├│n del 
+agricultor.  
+6. Se muestra el mensaje: "Cuenta desactivada exitosamente" . 
+Excepciones (Flujo 
+Alternativo)  E.1 Auto -desactivaci├│n (Paso 3): Si el administrador intenta realizar esta 
+acci├│n sobre su propia cuenta, el sistema bloquea el flujo mostrando 
+"Operaci├│n denegada. No puede desactivar su propia sesi├│n".  
+=== PAGINA 13 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  13  
+=== PAGINA 14 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  14 
+M├│dulo 4: Configuraci├│n de Cat├ílogos  
+ 
+C├│digo y Nombre  CU-04: Configurar cat├ílogos  
+Requisito  REQ -04 
+Actor(es)  Administrador de la Finca  
+Descripci├│n  
+M├│dulo de parametrizaci├│n del negocio encargado de gestionar las tablas 
+maestras de control que nutren las interfaces din├ímicas de campo (Lotes f├¡sicos, 
+Campa├▒as de cultivo y Clientes exportadores).  
+4.1  
+ Diagrama de Casos de Uso (Estructura de Bloques  
+) 
+ 
+4.2  
+ Especificaci├│n Nivel  
+0 
+=== PAGINA 15 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  15  4.3 Especificaciones de Nivel 1 (CRUDs 
+Maestros)  
+C├│digo y Nombre  CU-04.2: Gestionar lotes  
+Requisito  REQ -04.2  
+Actor  Administrador de la Finca  
+Precondici├│n  El administrador ha iniciado sesi├│n con nivel de privilegios ADMIN.  
+Descripci├│n  Permite el mantenimiento del cat├ílogo de ├íreas f├¡sicas de cultivo, fundamental 
+para la trazabilidad de origen de cada cosecha registrada en campo.  
+C├│digo y Nombre  CU-04.3: Gestionar compradores  C├│digo y Nombre  CU-04.1: Gestionar campa├▒as  
+Requisito  REQ -04.1  
+Actor  Administrador de la Finca  
+Precondici├│n  El administrador ha iniciado sesi├│n con nivel de privilegios ADMIN.  
+Descripci├│n  Permite crear y configurar los ciclos de cosecha (campa├▒as), estableciendo el 
+c├│digo identificador, el color de la funda protectora, el comprador de destino y el 
+peso est├índar de la tara de la gaveta.  
+=== PAGINA 16 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  16 Requisito  REQ -04.3  
+Actor  Administrador de la Finca  
+Precondici├│n  El administrador ha iniciado sesi├│n con nivel de privilegios ADMIN.  
+Descripci├│n  1. Permite administrar el directorio comercial de exportadores y mayoristas, 
+incluyendo la configuraci├│n de perfiles de tolerancia de merma espec├¡ficos para 
+cada cliente.  
+4.3 Especificaciones de Nivel 2(CRUDs 
+desglosados) . 
+[REQ -04.1] CU -04.01: Gestionar Campa├▒as  
+C├│digo  
+Nivel  2 Acci├│n  (Flujo  Normal)  Excepciones  (Flujos  
+Alternativos)  
+CU-04.1.1  
+ 
+ 
+Registrar 
+Campa├▒a  1. El actor selecciona 
+"Nueva Campa├▒a".  
+ 
+2. El sistema solicita: 
+C├│digo (Ej. 102024), 
+Color de Funda y 
+Comprador asignado.  
+ 
+3. El sistema precarga el 
+campo "Peso de Tara 
+(kg)" con el valor por 
+defecto: 1.70.  
+ 
+4. El actor guarda los 
+datos.  
+ 
+5. El sistema registra la 
+campa├▒a como "Activa".  E.1 C├│digo  duplicado:  El 
+sistema  detecta  que el c├│digo  
+ya pertenece  a un ciclo 
+anterior.  Muestra  error:  "El 
+c├│digo  de campa├▒a  ingresado  
+ya existe.  Ingrese  un 
+identificador  ├║nico."  
+=== PAGINA 17 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  17 C├│digo  
+Nivel  2 Acci├│n  (Flujo  Normal)  Excepciones  (Flujos  
+Alternativos)  
+CU-04.1.2  
+ 
+ 
+Consultar 
+Campa├▒a  1. El actor ingresa al 
+subm├│dulo "Campa├▒as".  
+ 
+2. El sistema recupera de 
+la base de datos (v├¡a 
+Prisma) y despliega el 
+historial completo de 
+campa├▒as, ordenadas de 
+la m├ís reciente a la m├ís 
+antigua.  E.1 Paginaci├│n  vac├¡a:  Si es la 
+primera  vez que se usa el 
+sistema,  muestra:  "No existen  
+campa├▒as  registradas."  
+CU-04.1.3  
+ 
+ 
+Editar 
+Campa├▒a  1. El actor selecciona una 
+campa├▒a "Activa" y elige 
+"Editar".  
+ 
+2. El sistema precarga los 
+datos actuales.  
+ 
+3. El actor modifica 
+valores permitidos (ej. 
+cambia el comprador o 
+ajusta la tara) y guarda.  
+ 
+4. El sistema actualiza el 
+registro.  E.1 Edici├│n  Bloqueada:  Si la 
+campa├▒a  ya tiene  
+transacciones  de pesaje  
+registradas  y sincronizadas,  el 
+sistema  bloquea  la edici├│n  del 
+campo  "Peso  de Tara"  para 
+evitar  descuadres  contables  
+hist├│ricos.  
+CU-04.1.4  
+ 
+ 
+Cerrar 
+Campa├▒a 
+(Inactivar)  1. El actor selecciona una 
+campa├▒a "Activa" y elige 
+"Cerrar/Finalizar".  
+2. El sistema pide 
+confirmaci├│n advirtiendo 
+que ya no se podr├ín 
+registrar m├ís pesajes con 
+este c├│digo.  E.1 Sincronizaci├│n  
+Pendiente:  El sistema  detecta  
+que hay dispositivos  de campo  
+con pesajes  de esta campa├▒a  
+a├║n no sincronizados  en 
+PostgreSQL.  Muestra  
+advertencia:  "No se puede  
+cerrar  la campa├▒a.  Existen  
+=== PAGINA 18 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  18 C├│digo  
+Nivel  2 Acci├│n  (Flujo  Normal)  Excepciones  (Flujos  
+Alternativos)  
+ 
+ 
+3. El sistema cambia el 
+estado de la campa├▒a a 
+"Cerrada" (Borrado 
+L├│gico / Inactivo).  transacciones  pendientes  de 
+sincronizaci├│n."  
+[REQ -04.2] CU -04.0 2: Gestionar Lotes  
+C├│digo  
+Nivel  2 Acci├│n  (Flujo  Normal)  Excepciones  (Flujos  
+Alternativos)  
+CU-04.2.1  
+ 
+ 
+Registrar 
+Lote 1. El actor selecciona "Nuevo 
+Lote".  
+2. El sistema solicita: 
+Nombre/N├║mero del Lote, 
+Hect├íreas, y Variedad de 
+Cultivo (ej. Pitahaya Amarilla).  
+3. El actor guarda los datos.  
+4. El sistema guarda y 
+muestra ├®xito.  E.1 Nombre  Duplicado:  El 
+sistema  detecta  que el 
+identificador  del lote ya 
+existe.  Muestra  error:  "El 
+lote ingresado  ya se 
+encuentra  registrado."  
+CU-04.2.2  
+ 
+ 
+Consultar 
+Lote 1. El actor ingresa al 
+subm├│dulo "Lotes".  
+2. El sistema recupera de la 
+base de datos y despliega el 
+listado de todos los lotes 
+configurados, mostrando su 
+estado (Activo/Inactivo).  E.1 Tabla  Vac├¡a:  Si no hay 
+lotes,  el sistema  muestra  el 
+mensaje:  "No existen  lotes  
+registrados.  Comience  
+creando  uno nuevo."  
+CU-04.2.3  
+ 
+ 
+Editar 
+Lote 1. El actor selecciona un lote 
+de la lista y elige "Editar".  
+2. El sistema precarga los 
+datos actuales.  
+ 
+ E.1 Lote  Protegido:  (Si 
+aplica)  No se permite  
+modificar  el identificador  
+principal  si el lote ya tiene  
+cosechas  hist├│ricas  
+asociadas.  
+=== PAGINA 19 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  19 C├│digo  
+Nivel  2 Acci├│n  (Flujo  Normal)  Excepciones  (Flujos  
+Alternativos)  
+3. El actor modifica los 
+valores (ej. actualiza las 
+hect├íreas) y guarda.  
+4. El sistema actualiza el 
+registro.  
+CU-04.2.4  
+ 
+ 
+Eliminar 
+Lote 1. El actor selecciona un lote 
+y elige Eliminar lote . 
+2. El sistema pide 
+confirmaci├│n.  
+3. El sistema cambia el 
+estado a Inactivo (Borrado 
+L├│gico) para preservar el 
+historial de cosechas 
+pasadas.  E.1 Lote  en Uso:  Si hay 
+una campa├▒a  activa  
+operando  sobre  ese lote, el 
+sistema  advierte  que no se 
+puede  inactivar  hasta  cerrar  
+el ciclo.  
+[REQ -04.3] CU -04.0 3: Gestionar compradores  
+ 
+C├│digo  
+Nivel  2 Acci├│n  (Flujo  Normal)  Excepciones  (Flujos  
+Alternativos)  
+CU-04.3.1  
+ 
+ 
+Registrar 
+Comprador  1. El actor selecciona 
+"Nuevo Comprador".  
+2. El sistema solicita: 
+RUC/Identificaci├│n, Raz├│n 
+Social, Contacto, y Perfil de 
+Tolerancia (Estandar ┬▒4% u 
+otro).  
+3. El actor guarda los datos.  
+4. El sistema registra al 
+cliente.  E.1 RUC  Duplicado:  El 
+sistema  detecta  que la 
+identificaci├│n  fiscal  ya 
+existe.  Muestra  error:  "El 
+comprador  ya se encuentra  
+en el directorio."  
+=== PAGINA 20 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  20 C├│digo  
+Nivel  2 Acci├│n  (Flujo  Normal)  Excepciones  (Flujos  
+Alternativos)  
+CU-04.3.2  
+ 
+ 
+Consultar 
+Comprador  1. El actor ingresa al 
+subm├│dulo "Compradores".  
+2. El sistema despliega el 
+listado del directorio 
+comercial.  E.1 Error  de Conexi├│n:  Si 
+el sistema  no puede  
+recuperar  la lista, muestra  
+una alerta  gen├®rica  de 
+reintento.  
+CU-04.3.3  
+ 
+ 
+Editar 
+Comprador  1. El actor selecciona un 
+cliente y elige "Editar".  
+2. El sistema precarga los 
+datos comerciales actuales.  
+3. El actor modifica la 
+informaci├│n (ej. actualiza el 
+contacto o cambia el perfil 
+de tolerancia) y guarda.  E.1 Datos  Incompletos:  El 
+actor  deja vac├¡o  el campo  
+obligatorio  de Raz├│n  
+Social.  El sistema  bloquea  
+el guardado  y resalta  el 
+campo.  
+CU-04.3.4  
+ 
+ 
+Eliminar  
+Comprador  1. El actor selecciona un 
+comprador y elige " Eliminar ". 
+2. El sistema pide 
+confirmaci├│n de la acci├│n.  
+3. El sistema aplica un 
+borrado l├│gico, ocult├índolo 
+de los men├║s desplegables 
+para futuras campa├▒as.  N/A (El borrado  l├│gico  no 
+genera  conflictos  de 
+integridad  referencial  con 
+las ventas  pasadas).  
+ 
+ 
+ 
+ 
+ 
+=== PAGINA 21 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  21 M├│dulo 5: Transacciones en Campo 
+(Core del Negocio)  
+5.1 Diagrama de Casos de Uso (Estructura de Bloques)  
+ 
+ 5.2 Especificaci├│n Nivel 0  
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGINA 22 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  22  
+  C├│digo y Nombre  CU-05: Registrar transacciones en campo  
+Requisito  REQ -05 
+Actor(es)  Agricultor , Administrador  
+Descripci├│n  
+Representa el n├║cleo operativo de la finca. Permite registrar la cosecha inicial en 
+bruto, su posterior desglose en categor├¡as de exportaci├│n/nacional (aplicando 
+reglas matem├íticas de tara y tolerancia de descuadre) y los ajustes finales del 
+comprador, con soporte para operaciones sin conexi├│n a internet.  
+=== PAGINA 23 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  23  5.3 Especificaciones de Nivel 1  
+C├│digo y Nombre  CU-05.1: Registrar pesaje bruto (Cosecha)  
+Requisito  REQ -05.1  
+Precondici├│n  Existen campa├▒as y lotes configurados en el sistema.  
+Actor  Agricultor  
+Flujo Normal  1. El usuario accede al m├│dulo "Nueva Cosecha".  
+2. El sistema despliega un formulario solicitando seleccionar: Campa├▒a 
+actual y Lote.  
+3. El usuario ingresa la Cantidad Total de Gavetas recolectadas y el Peso 
+Bruto Total (marcado por la b├íscula).  
+4. El usuario presiona "Registrar Cosecha".  
+5. El sistema recupera el valor de la tara de la gaveta (1.70 kg) asociado a la 
+campa├▒a seleccionada.  
+6. El sistema calcula internamente el Peso Neto Base de la cosecha usando 
+la f├│rmula: Peso_Bruto - (Cantidad_Gavetas * Tara) . 
+7. El sistema almacena la transacci├│n generando un UUID ├║nico.  
+ 
+8. El sistema muestra: "Cosecha registrada exitosamente" . 
+Excepciones  
+E.1 Sin conexi├│n de red (Paso 7):  El sistema detecta ausencia de internet, 
+guarda el registro en IndexedDB  localmente con estado PENDING y notifica: 
+"Cosecha guardada localmente. Se sincronizar├í al detectar red" . 
+=== PAGINA 24 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  24 C├│digo y Nombre  CU-05.3: Registrar ajuste de comprador  
+Requisito  REQ -05.3  
+Actor  Administrador / Agricultor  
+Precondici├│n  
+La clasificaci├│n del lote ha sido guardada y despachada al exportador 
+correspondiente.  
+Flujo Normal  1. El usuario localiza la cosecha enviada en el historial.  
+2. Selecciona "Ingresar reporte de comprador".  
+3. El sistema solicita el peso exacto (en kg) rechazado por el comprador en 
+destino.  
+4. El usuario ingresa el valor y guarda.  
+5. El sistema recalcula autom├íticamente el Porcentaje de Fruta Efectiva, 
+descontando el rechazo del total de exportaci├│n inicial.  
+6. El sistema actualiza las m├®tricas hist├│ricas de ese lote.  
+ 
+=== PAGINA 25 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  25 Excepciones (Flujo 
+Alternativo)  E.1 Rechazo excede exportaci├│n (Paso 5): El sistema valida que los kilos 
+rechazados no sean matem├íticamente superiores a los kilos enviados. Si ocurre, 
+bloquea el registro mostrando: "Error: El rechazo no puede ser mayor al volumen 
+despachado".  C├│digo y Nombre  CU-05.2: Registrar clasificaci├│n poscosecha  
+Requisito  REQ -05.2  
+Actor  Agricultor  
+Precondici├│n  
+Existe un registro previo de "Pesaje Bruto" para el lote en esa jornada.  
+Flujo Normal  1. El usuario ingresa a "Clasificar Producci├│n" y selecciona la 
+cosecha pendiente del d├¡a.  
+2. El sistema despliega la matriz de clasificaci├│n.  
+3. El usuario ingresa la Cantidad de Gavetas y el Peso Bruto para 
+Exportaci├│n  (G: >=ge280g$, P: 180g -279g).  
+4. El usuario ingresa la Cantidad de Gavetas y el Peso Bruto para 
+Nacional  (N1, N2, N3).  
+5. El usuario hace clic en "Calcular y Verificar".  
+6. El sistema calcula el Peso Neto de cada categor├¡a restando la tara 
+correspondiente al n├║mero de gavetas ingresadas por categor├¡a.  
+7. El sistema suma el total del Peso Neto Clasificado y lo compara 
+contra el Peso Neto Base (Registrado en CU -05.1).  
+8. El sistema valida que la diferencia porcentual entre ambos pesos 
+se encuentre dentro del rango de tolerancia del +- 4\%$. 
+9. El sistema muestra el % de exportaci├│n real y aprueba el cuadre.  
+10. El usuario presiona "Guardar Clasificaci├│n".  
+ 
+Excepciones  E.1 Descuadre fuera de l├¡mite (Paso 8):  Si la diferencia es mayor al $ \pm 
+4\%$, el sistema detiene el flujo normal, colorea el indicador en rojo y 
+muestra: "Alerta: El margen de error ($X \%$) supera el l├¡mite permitido. 
+Verifique los pesos" . El sistema requiere una confirmaci├│n forzada para 
+guardar y levanta una bandera de auditor├¡a para el administrador.  
+ 
+=== PAGINA 26 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  26   
+=== PAGINA 27 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  27  
+C├│digo y Nombre  CU-05.4: Sincronizar datos offline  
+Requisito  REQ -05.4  
+Actor  Sistem a/ Agricultor (Manual)  
+Precondici├│n  
+El dispositivo tiene registros en estado PENDING en su base de datos local y ha 
+recuperado la conexi├│n a Internet.  
+Flujo Normal  1. El m├│dulo Service Worker  del sistema detecta el evento de restauraci├│n 
+de red (navigator.onLine === true ). 
+2. El sistema recupera todos los registros transaccionales en estado PENDING  
+almacenados en IndexedDB . 
+3. El sistema empaqueta las transacciones y las env├¡a mediante una petici├│n 
+as├¡ncrona a la API del servidor.  
+4. El servidor (PostgreSQL) valida los UUIDs para evitar duplicidad y 
+almacena la informaci├│n.  
+5. El servidor responde con un c├│digo HTTP 200 (├ëxito).  
+6. El sistema local cambia el estado de los registros de PENDING  a SYNCED  y 
+los elimina de la cola.  
+ 
+7. La interfaz muestra un indicador verde sutil: "Sincronizaci├│n 
+completada" . 
+ 
+Excepciones (Flujo 
+Alternativo)  E.1 Falla de Servidor (Paso 5): Si el servidor rechaza la conexi├│n o arroja error 500, 
+el sistema mantiene los datos en PENDING y reintenta la sincronizaci├│n utilizando 
+un algoritmo de backoff exponencial (ej. reintenta en 1 min, luego en 5 min, etc.).  
+  
+=== PAGINA 28 ===
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  28 M├│dulo 6: An├ílisis de Productividad  
+6.1 Diagrama de Casos de Uso (Estructura de Bloques)  
+ 6.2 Especificaci├│n Nivel 0   
+
+=== PAGINA 29 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gesti├│n Agr├¡cola  29  6.3 Especificaciones de Nivel 1 y Nivel 2 
+(M├│dulo de Dashboard)  
+C├│digo y Nombre  CU-06.1: Visualizar dashboard  
+Requisito  REQ -06.1  
+Actor  Administrador  
+Precondici├│n  Existen transacciones hist├│ricas de cosechas sincronizadas . 
+Flujo Normal  
+1. El administrador ingresa al panel principal de anal├¡ticas.  
+2. El sistema procesa los gr├íficos din├ímicos de producci├│n agregada y 
+curvas de  rendimiento.  
+3. El administrador aplica filtros avanzados en la parte superior para aislar  
+variables estrat├®gicas de productividad:  
+- CU-06.1.1 <<extend>>:  Filtrar por Rango de Fechas.  
+- CU-06.1.2 <<extend>>:  Filtrar por Lote F├¡sico (permite evaluar 
+estad├¡sticamente qu├® plantas tienen mejor rendimiento seg├║n su edad).     - 
+CU-06.1.3 <<extend>>:  Filtrar por Campa├▒a / C├│digo / Color de Funda  
+(permite auditar si el color de funda incidi├│ en proteger mejor la fruta de manchas 
+y da├▒os mec├ínicos).  
+4. El sistema recalcula y refresca los gr├íficos en pantalla . 
+5. El administrador interact├║a con el bot├│n "Exportar Resultados" 
+<<extend>> (CU -06.1.4) . 
+6. El sistema genera un reporte compilado con los filtros aplicados listo para  
+imprimir o enviar  en formato pdf y excel  
+Excepciones  E.1 Filtro sin datos (Paso 4): Si la combinaci├│n de filtros no arroja ning├║n 
+resultado (Ej. Lote 2 en el a├▒o 2020), el sistema muestra las gr├íficas vac├¡as 
+con el texto: "No existen registros de cosecha para los par├ímetros 
+seleccionados".  
+ 

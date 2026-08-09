@@ -1,0 +1,109 @@
+# ESPECIFICACIÓN DE REQUISITOS Y CASOS DE USO
+**Proyecto:** Sistema de Gestión Agrícola - Finca Jirah
+**Arquitectura:** Next.js, TypeScript, Prisma (Offline-First: SQLite a PostgreSQL)
+
+---
+
+## MÓDULO 1: ACCESO AL SISTEMA
+
+### Nivel 0: CU-01 Acceder al sistema
+**Descripción:** Permite a los usuarios registrados autenticarse de manera segura según su nivel de privilegios e incluye recuperación de credenciales.
+
+### Nivel 1 y 2: Desglose
+* **CU-01.1: Iniciar sesión**
+  * **Flujo Normal:** El usuario ingresa correo y contraseña. El sistema cifra la clave, compara el hash con la base de datos (Prisma), valida el estado "Activo" y devuelve un JWT.
+  * **Excepciones:** (E.1) Credenciales inválidas: Muestra "Correo o contraseña incorrectos". (E.2) Cuenta inactiva: Muestra "Su cuenta se encuentra desactivada".
+* **CU-01.2: Recuperar contraseña**
+  * **Flujo Normal:** El usuario ingresa su correo. El sistema valida su existencia y genera un token temporal encriptado válido por 1 hora. Luego permite ingresar y encriptar la nueva clave.
+  * **Excepciones:** (E.1) Correo inexistente: Muestra un mensaje genérico por seguridad. (E.2) Token caducado: Muestra "El enlace expiró".
+
+---
+
+## MÓDULO 2: CONFIGURAR PERFIL
+
+### Nivel 0: CU-02 Configurar perfil de usuario
+**Descripción:** Permite al usuario autogestionar su información de contacto, claves de acceso y preferencias de la aplicación PWA.
+
+### Nivel 1 y 2: Desglose
+* **CU-02.1: Actualizar datos**
+  * **Flujo Normal:** El usuario edita campos permitidos (Teléfono). El sistema valida el formato numérico y guarda los cambios bloqueando datos sensibles (Cédula, Rol).
+* **CU-02.2: Modificar contraseña**
+  * **Flujo Normal:** Solicita clave actual y nueva clave. Valida que la nueva cumpla la política de seguridad (mínimo 8 caracteres, 1 mayúscula, 1 número) y actualiza el hash.
+  * **Excepciones:** (E.1) Contraseña actual errónea: Rechaza el cambio.
+* **CU-02.3: Modificar preferencias**
+  * **Flujo Normal:** Cambia el tema (Claro/Oscuro). 
+  * **Excepciones:** (E.1) Sin Internet: Guarda en localStorage de forma transparente sin llamar al servidor.
+
+---
+
+## MÓDULO 3: GESTIONAR AGRICULTORES
+
+### Nivel 0: CU-03 Gestionar agricultores
+**Descripción:** Mantenimiento del padrón de trabajadores de campo (CRUD).
+
+### Nivel 1 y 2: Desglose
+* **CU-03.1: Crear agricultor**
+  * **Flujo Normal:** Ingreso de Nombres, Cédula y Rol. Valida el algoritmo de cédula ecuatoriana. Genera contraseña temporal alfanumérica y guarda.
+  * **Excepciones:** (E.1) Cédula o correo duplicado: Lanza error de integridad.
+* **CU-03.2: Consultar agricultor**
+  * **Flujo Normal:** Búsqueda en tiempo real por nombre o cédula. Devuelve listado en < 1 segundo.
+* **CU-03.3: Editar agricultor**
+  * **Flujo Normal:** Modifica campos permitidos. Cédula bloqueada.
+  * **Excepciones:** (E.1) Correo asignado a otro ID: Lanza error de duplicidad.
+* **CU-03.4: Desactivar agricultor (Borrado Lógico)**
+  * **Flujo Normal:** Ejecuta Soft-Delete (isActive = false) para conservar historial de cosechas. Revoca tokens de sesión activos.
+  * **Excepciones:** (E.1) Auto-desactivación: El administrador no puede desactivar su propia cuenta.
+
+---
+
+## MÓDULO 4: CONFIGURAR CATÁLOGOS
+
+### Nivel 0: CU-04 Configurar catálogos de la finca
+**Descripción:** Parametrización del negocio. Mantenimiento de Campañas, Lotes y Compradores.
+
+### Nivel 1 y 2: Desglose
+* **CU-04.1: Gestionar Campañas**
+  * **CU-04.1.1 Registrar:** Crea campaña (Ej. 102026). Asigna automáticamente "1.70 kg" como peso de tara por defecto. Falla si el código está duplicado.
+  * **CU-04.1.2 Consultar:** Lista historial de campañas.
+  * **CU-04.1.3 Editar:** Modifica datos. Si ya hay pesajes, bloquea la edición de la "Tara" para evitar descuadres.
+  * **CU-04.1.4 Cerrar (Inactivar):** Cambia estado a cerrada. Falla si hay pesajes en estado PENDING sin sincronizar.
+* **CU-04.2: Gestionar Lotes**
+  * Incluye Registrar (valida nombre único), Consultar, Editar e Inactivar (falla si el lote tiene una campaña activa).
+* **CU-04.3: Gestionar Compradores**
+  * Incluye Registrar (valida RUC único y asigna perfil de tolerancia), Consultar, Editar y Eliminar (Borrado lógico).
+
+---
+
+## MÓDULO 5: TRANSACCIONES EN CAMPO (CORE OFFLINE-FIRST)
+
+### Nivel 0: CU-05 Registrar transacciones en campo
+**Descripción:** Captura de cosechas en áreas sin internet. Aplica descuento de taras, validación matemática de mermas y sincronización diferida.
+
+### Nivel 1 y 2: Desglose
+* **CU-05.1: Registrar pesaje bruto**
+  * **Flujo Normal:** El agricultor ingresa gavetas totales y peso bruto. El sistema aplica la tara de 1.70kg y calcula el "Peso Neto Base". 
+  * **Excepciones:** (E.1) Sin red: Guarda en base de datos local (SQLite) con estado PENDING.
+* **CU-05.2: Registrar clasificación poscosecha**
+  * **Flujo Normal:** Desglosa el peso por categorías (Exportación/Nacional). Compara la suma clasificada contra el "Peso Neto Base".
+  * **Excepciones:** (E.1) Límite de Tolerancia: Si la diferencia supera el margen del ±4% (Patrón Strategy), bloquea el guardado y exige confirmación forzada por descuadre.
+* **CU-05.3: Registrar ajuste de comprador**
+  * **Flujo Normal:** Ingresa kg rechazados en puerto. Recalcula el % de fruta efectiva.
+* **CU-05.4: Sincronizar datos offline (Patrón Adapter y State)**
+  * **Flujo Normal:** Detecta red. Extrae registros PENDING, los adapta al formato de PostgreSQL y los envía. Si PostgreSQL responde 200 OK, cambia estado local a SYNCED.
+  * **Excepciones:** (E.1) Falla de servidor 500: Mantiene datos en PENDING e inicia reintentos (backoff).
+
+---
+
+## MÓDULO 6: ANALIZAR PRODUCTIVIDAD
+
+### Nivel 0: CU-06 Analizar productividad
+**Descripción:** Generación de métricas, curvas de rendimiento y cuadros de mando interactivos (Dashboard).
+
+### Nivel 1 y 2: Desglose
+* **CU-06.1: Visualizar dashboard interactivo**
+  * **Flujo Normal:** Procesa agregaciones estadísticas (Suma de pesos netos, % de exportación vs nacional).
+  * **Extensiones (Filtros y Reportes):**
+    * **CU-06.1.1:** Filtrar métricas por rango de fechas. (Falla si fecha inicio > fecha fin).
+    * **CU-06.1.2:** Filtrar métricas por Lote físico (evalúa rendimiento de plantas).
+    * **CU-06.1.3:** Filtrar por Campaña/Color de funda.
+    * **CU-06.1.4:** Generar reporte exportable. Construye un buffer de archivo PDF/Excel con la data procesada.

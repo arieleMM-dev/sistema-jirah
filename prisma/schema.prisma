@@ -1,0 +1,209 @@
+// Prisma Schema - Sistema de Gestión Agrícola Jirah
+// Base de datos: SQLite para desarrollo (migrar a PostgreSQL en producción)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─────────────────────────────────────────────
+// MÓDULO 1 & 2: Usuarios y Autenticación
+// ─────────────────────────────────────────────
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  nombres        String
+  apellidos      String
+  cedula         String   @unique
+  telefono       String?
+  avatar         String?
+  rol            Rol      @default(AGRICULTOR)
+  isActive       Boolean  @default(true)
+  tema           Tema     @default(OSCURO)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastLoginAt    DateTime?
+
+  // Relaciones
+  resetTokens    PasswordResetToken[]
+  pesajesBrutos  PesajeBruto[]
+  clasificaciones Clasificacion[]
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+// ─────────────────────────────────────────────
+// MÓDULO 4: Catálogos de la Finca
+// ─────────────────────────────────────────────
+model Campana {
+  id           String   @id @default(cuid())
+  codigo       String   @unique
+  nombre       String
+  funda        String   // Código/color de funda
+  taraBase     Float    @default(1.70) // kg (peso gaveta)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Comprador asignado (opcional)
+  compradorId  String?
+  comprador    Comprador? @relation("CampanaComprador", fields: [compradorId], references: [id])
+
+  pesajesBrutos PesajeBruto[]
+
+  @@map("campanas")
+}
+
+model Lote {
+  id          String   @id @default(cuid())
+  codigo      String   @unique
+  nombre      String
+  hectareas   Float?
+  variedad    String?  // Ej: "Pitahaya Amarilla" — CU-04.2.1
+  descripcion String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pesajesBrutos PesajeBruto[]
+
+  @@map("lotes")
+}
+
+model Comprador {
+  id              String        @id @default(cuid())
+  nombre          String
+  ruc             String?       @unique
+  tipo            TipoComprador @default(MAYORISTA)
+  contacto        String?
+  toleranciaPct   Float         @default(4.0) // % tolerancia de merma
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  ajustes         AjusteComprador[]
+  campanas        Campana[]     @relation("CampanaComprador")
+
+  @@map("compradores")
+}
+
+// ─────────────────────────────────────────────
+// MÓDULO 5: Transacciones en Campo (Core)
+// ─────────────────────────────────────────────
+model PesajeBruto {
+  id             String      @id @default(cuid())
+  fechaRegistro  DateTime    @default(now())
+  pesoBrutoKg    Float       // Peso total en kg
+  numGavetas     Int         // Número de gavetas usadas
+  taraTotal      Float       // numGavetas * taraBase
+  pesoNetoKg     Float       // pesoBrutoKg - taraTotal
+  observaciones  String?
+  syncStatus     SyncStatus  @default(PENDING)
+  syncedAt       DateTime?
+
+  // Relaciones
+  agricultorId   String
+  agricultor     User        @relation(fields: [agricultorId], references: [id])
+  campanaId      String
+  campana        Campana     @relation(fields: [campanaId], references: [id])
+  loteId         String
+  lote           Lote        @relation(fields: [loteId], references: [id])
+
+  clasificacion  Clasificacion?
+
+  @@map("pesajes_brutos")
+}
+
+model Clasificacion {
+  id                    String   @id @default(cuid())
+  fechaRegistro         DateTime @default(now())
+
+  // Exportación
+  gavetasExportacion    Int      @default(0)
+  pesoExportacionBruto  Float    @default(0)
+  pesoExportacionKg     Float    @default(0) // neto exportación
+
+  // Nacional
+  gavetasNacional       Int      @default(0)
+  pesoNacionalBruto     Float    @default(0)
+  pesoNacionalKg        Float    @default(0) // neto nacional
+
+  // Descarte
+  pesoDescarte          Float    @default(0)
+
+  totalClasificado      Float    // Suma de categorías netas
+  margenErrorPct        Float    // % diferencia vs pesaje bruto
+  dentroDelMargen       Boolean  // ±4% regla de negocio
+  auditFlag             Boolean  @default(false) // bandera si supera ±4%
+  observaciones         String?
+  syncStatus            SyncStatus @default(PENDING)
+
+  // Relaciones
+  pesajeBrutoId         String   @unique
+  pesajeBruto           PesajeBruto @relation(fields: [pesajeBrutoId], references: [id])
+  clasificadorId        String
+  clasificador          User     @relation(fields: [clasificadorId], references: [id])
+
+  ajusteComprador       AjusteComprador?
+
+  @@map("clasificaciones")
+}
+
+model AjusteComprador {
+  id              String   @id @default(cuid())
+  fechaRegistro   DateTime @default(now())
+  pesoRechazado   Float    @default(0)
+  motivoRechazo   String?
+  ajusteKg        Float    // Peso final aceptado
+  observaciones   String?
+
+  // Relaciones
+  clasificacionId String   @unique
+  clasificacion   Clasificacion @relation(fields: [clasificacionId], references: [id])
+  compradorId     String
+  comprador       Comprador @relation(fields: [compradorId], references: [id])
+
+  @@map("ajustes_comprador")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+enum Rol {
+  ADMIN
+  AGRICULTOR
+  CLASIFICADOR
+  AGRICULTOR_CLASIFICADOR
+}
+
+enum Tema {
+  CLARO
+  OSCURO
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCING
+  SYNCED
+}
+
+enum TipoComprador {
+  EXPORTADOR
+  MAYORISTA
+}

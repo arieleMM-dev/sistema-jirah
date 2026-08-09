@@ -1,0 +1,287 @@
+
+=== PAGINA 1 ===
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  1 UNIVERSIDAD DE LAS FUERZAS ARMADAS "ESPE"  
+Departamento de Ciencias de la Computación  
+Ingeniería de Software  
+Documento de Especificación de  
+Requisitos y Casos de Uso  
+Sistema de Gestión Agrícola - Proyecto Jirah  
+Asignatura:  Ingeniería de Requisitos de Software  
+Proyecto:  Control, Gestión y Trazabilidad de Cosechas de Pitahaya  
+Autor/Estudiante:  Ariel Esteban Morillo Mosquera  
+Fecha de Entrega:  Junio 2026  
+Finca de Aplicación:  Finca Jirah (Pitahaya Amarilla)  
+ 
+ 
+=== PAGINA 2 ===
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  2 Lista Maestra de Requisitos Funcionales y Casos de 
+Uso 
+ 
+A continuación,  se detalla la taxonomía y jerarquía del sistema, estructurada con verbos en infinitivo para los 
+módulos macro y acotando el término "Gestionar" únicamente a aquellos casos que representan un ciclo de 
+vida CRUD completo.  
+REQ -01 / CU -01: Acceder al sistema  
+◦ REQ -01.1 / CU -01.1: Iniciar sesión  
+◦ REQ -01.2 / CU -01.2: Recuperar contraseña olvidada  
+REQ -02 / CU -02: Configurar perfil de usuario  
+◦ REQ -02.1 / CU -02.1: Actualizar datos  
+◦ REQ -02.2 / CU -02.2: Modificar contraseña  
+◦ REQ -02.3 / CU -02.3: Modificar preferencias de usuario  
+REQ -03 / CU -03: Gestionar agricultores  
+◦ REQ -03.1 / CU -03.1: Crear agricultor  
+◦ REQ -03.2 / CU -03.2: Consultar de agricultor  
+◦ REQ -03.3 / CU -03.3: Editar de agricultor  
+◦ REQ -03.4 / CU -03.4: Desactivar agricultor  
+REQ -04 / CU -04: Configurar catálogos de la finca  
+◦ REQ -04.1 / CU -04.1: Gestionar campañas (Código, Funda, Tara base de 1.70kg)  
+◦ REQ -04.2 / CU -04.2: Gestionar lotes (Mantenimiento de áreas de cultivo)  
+◦ REQ -04.3 / CU -04.3: Gestionar compradores (Mantenimiento de exportadores y mayoristas)  
+REQ -05 / CU -05: Registrar transacciones en campo (Core del Negocio)  
+◦ REQ -05.1 / CU -05.1: Registrar pesaje bruto (Cosecha cruda por lote)  
+◦ REQ -05.2 / CU -05.2: Registrar clasificación poscosecha (Modelado de mermas y categorías)  
+◦ REQ -05.3 / CU -05.3: Registrar ajuste de comprador (Trazabilidad de rechazos en destino)  
+◦ REQ -05.4 / CU -05.4: Sincronizar datos offline (Estrategia PWA - IndexedDB a PostgreSQL)  
+REQ -06 / CU -06: Analizar productividad  
+◦ REQ -06.1 / CU -06.1: Visualizar dashboard interactivo  
+◦ REQ -06.1.1 / CU -06.1.1: Filtrar métricas por rango de fechas <<extend>>  
+◦ REQ -06.1.2 / CU -06.1.2: Filtrar métricas por lote <<extend>>  
+◦ REQ -06.1.3 / CU -06.1.3: Filtrar métricas por campaña/funda <<extend>>  
+=== PAGINA 3 ===
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  3 ◦ REQ -06.1.4 / CU -06.1.4: Generar reporte exportable (PDF/Excel) <<extend>>  
+Módulo 1: Acceso al Sistema  
+1.1 Diagrama de Casos de Uso (Estructura de Bloques)  
+ 
+ 1.2 Especificación Nivel 0  
+Código y Nombre  CU-01: Acceder al sistema  
+Requisito  REQ -01 
+Actor(es)  Administrador, Agricultor  
+Descripción  Permite a los usuarios registrados autenticarse de manera segura para acceder a 
+las funcionalidades del sistema según su nivel de privilegios, e incluye el 
+mecanismo de recuperación en caso de pérdida de credenciales.  
+
+=== PAGINA 4 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  4  1.3 Especificaciones de Nivel 1  
+Código y Nombre  CU-01.1: Iniciar sesión  
+Requisito  REQ -01.1  
+Actor  Administrador, Agricultor  
+Precondición  El usuario posee una cuenta registrada y activa . 
+Flujo Normal  1. El usuario ingresa a la pantalla principal de login.  
+2. El sistema solicita el correo electrónico y la contraseña.  
+3. El usuario ingresa sus credenciales y presiona "Ingresar".  
+ 
+4. El sistema cifra la contraseña ingresada y la compara con el hash de la 
+base de datos.  
+ 
+5. El sistema verifica que el estado de la cuenta sea "Activo".  
+ 
+6. El sistema genera el token de sesión y redirige al usuario a la pantalla 
+correspondiente a su rol (Dashboard para Admin, Pantalla de Recolección 
+para Agricultor).  
+ 
+Excepciones  E.1 Credenciales inválidas (Paso 4):  El sistema muestra el mensaje "Correo o 
+contraseña incorrectos"  y limpia el campo de la contraseña. No se especifica 
+cuál de los dos datos falló por seguridad.  
+E.2 Cuenta inactiva (Paso 5):  El sistema bloquea el acceso y muestra el 
+mensaje "Su cuenta se encuentra desactivada. Comuníquese con el 
+administrador de la finca" . 
+ 
+Código y Nombre  CU-01.2: Recuperar contraseña  
+Requisito  REQ -01.2  
+Actor  Usuario  
+=== PAGINA 5 ===
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  5 Precondición  
+El usuario se encuentra fuera de la sesión y dispone de un correo electrónico 
+válido registrado.  
+Flujo Normal  1. El usuario selecciona la opción "¿Olvidó su contraseña?" en la pantalla de 
+login.  
+2. El sistema solicita el correo electrónico asociado a la cuenta.  
+3. El usuario ingresa el correo y presiona "Enviar enlace".  
+4. El sistema valida la existencia del correo, genera un token temporal 
+encriptado (válido por 1 hora) y envía el enlace de recuperación.  
+5. El usuario accede al enlace recibido en su correo.  
+ 
+6. El sistema muestra la pantalla de restablecimiento solicitando la nueva 
+contraseña y su confirmación.  
+ 
+7. El usuario ingresa la nueva contraseña.  
+ 
+8. El sistema valida las políticas de complejidad y actualiza la credencial.  
+ 
+9. El sistema muestra "Contraseña actualizada exitosamente"  y redirige al 
+login.  
+Excepciones  
+E.1 Cuenta Inexistente:  Si el correo no existe, el sistema muestra el mensaje 
+estándar: "Si el correo es válido, recibirá un enlace de recuperación"  para evitar 
+filtraciones de cuentas.  
+E.2 Token Caducado:  Si el usuario ingresa pasado el tiempo límite, el sistema 
+indica: "El enlace de recuperación ha expirado" . 
+=== PAGINA 6 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  6 Módulo 2: Configuración de Perfil  
+ 
+Código y Nombre  CU-02: Configurar perfil de usuario  
+Requisito  REQ -02 
+Actor(es)  Administrador o Agricultor  
+Descripción  
+Permite al usuario activo autogestionar su información de contacto variable 
+(teléfono, fotografía), actualizar sus claves de acceso y parametrizar las 
+preferencias estéticas de la PWA.  
+2.1  
+ Diagrama de Casos de Uso (Estructura de Bloques  
+) 
+ 
+2.2  
+ Especificación Nivel  
+0 
+
+=== PAGINA 7 ===
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  7  2.3 Especificaciones de Nivel 1  
+ 
+ 
+Código y Nombre  CU-02.2: Modificar contraseña  
+Requisito  REQ -02.2  
+Flujo Normal  1. El usuario selecciona "Cambiar Contraseña" dentro de su perfil.  
+2. El sistema solicita la clave actual, la nueva clave y su re -confirmación.  
+3. El usuario llena los campos y confirma.  
+4. El sistema valida que la contraseña actual sea idéntica al hash persistido.  
+5. El sistema evalúa la robustez de la nueva clave (mínimo 8 caracteres, 1 
+mayúscula, 1 número).  
+6. El sistema guarda los cambios de la nueva contraseña.  
+Excepciones  E.1 Contraseña Actual Errónea:  El sistema cancela el proceso mostrando: "La 
+contraseña actual provista es incorrecta" . 
+ 
+Código y Nombre  CU-02.3: Modificar preferencias  
+Requisito  REQ -02.3  Código y Nombre  CU-02.1: Actualizar datos  
+Requisito  REQ -02.1  
+Flujo Normal  1. El usuario se dirige a "Mi Perfil".  
+2. El sistema muestra los datos mutables (Teléfono y Avatar/Foto). Los datos  
+estructurales como cédula, rol y nombres aparecen bloqueados en modo lectura.  
+3. El usuario carga una foto o edita el teléfono y presiona "Guardar".  
+4. El sistema valida el formato de imagen (PNG/JPG < 2MB) y formato 
+numérico  del teléfono.  
+5. El sistema guarda los cambios y refresca la interfaz gráfica.  
+Excepciones  
+E.1 Archivo Inválido:  Si el archivo no es una imagen o supera el peso permitido, 
+se arroja el error: "Formato de archivo no soportado o tamaño excedido" . 
+=== PAGINA 8 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  8 Flujo Normal  
+1. El usuario interactúa con el selector de apariencia (Tema Claro / Tema Oscuro). 
+2. El sistema altera la  apariencia de la interfaz.  
+3. El sistema guarda  la variable en `localStorage` y envía una petición en segundo 
+plano para sincronizar la preferencia en la tabla de usuarios.  
+Excepciones  
+E.1 Sin Internet:  Si ocurre en desconexión, la configuración se mantiene en el 
+almacenamiento local (`localStorage`) y se omite la llamada al servidor de forma 
+transparente.  
+Módulo 3: Gestión de Personal (Expedientes)  
+3.1 Diagrama de Casos de Uso (Estructura de Bloques)  
+ 
+ 3.2 Especificación Nivel 0  
+Código y Nombre  CU-03: Gestionar  agricultores  
+Requisito  REQ -03 
+Actor(es)  Administrador  
+
+=== PAGINA 9 ===
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  9 Descripción  
+Módulo exclusivo de gestión de recursos humanos que permite estructurar la ficha 
+contractual inalterable de los trabajadores (Cédula, Nombres, Apellidos, Rol de 
+Campo).  
+ 3.3 Especificaciones de Nivel 1  
+Código y Nombre  CU-03.1: Cr ear agricultor  
+Requisito  REQ -03.1  
+Actor  Administrador  
+Precondición  El administrador ha iniciado sesión con nivel de privilegios admin  
+Flujo Normal  1. El administrador ingresa al módulo de "Personal" y hace clic en "Nuevo 
+Registro".  
+2. El sistema muestra un formulario en blanco solicitando: Nombres, 
+Apellidos, Cédula de Identidad (10 dígitos), Correo y Rol 
+(Agricultor/Clasificador).  
+3. El administrador ingresa la información y presiona "Guardar".  
+4. El sistema valida que la cédula cumpla el algoritmo de verificación y no 
+exista duplicidad de cédula o correo en la base de datos.  
+5. El sistema genera automáticamente una contraseña temporal 
+alfanumérica.  
+6. El sistema crea el usuario y envía la credencial por correo electrónico.  
+7. El sistema muestra el mensaje "Agricultor creado exitosamente" . 
+ 
+Excepciones  
+E.1 Cédula Inválida o Duplicada:  El sistema frena el almacenamiento arrojando 
+el error: "Documento de identidad no válido o ya registrado en la finca" . 
+Código y Nombre  CU-03.2: Consultar agricultor  
+Requisito  REQ -03.2  
+=== PAGINA 10 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  10 Actor  Administrador  
+Precondición  Existen registros de agricultores en la base de datos.  
+Flujo Normal  1. El administrador accede al módulo de Personal.  
+2. El sistema muestra una barra de búsqueda dinámica.  
+ 
+3. El administrador digita el nombre, apellido o cédula del trabajador.  
+ 
+4. El sistema filtra en tiempo real mostrando las coincidencias en una 
+tabla (Listado en $<1$ segundo).  
+ 
+5. El administrador selecciona la fila deseada.  
+ 
+6. El sistema despliega el expediente completo con el estado de la 
+cuenta, datos fijos y último acceso.  
+ 
+Excepciones (Flujo 
+Alternativo)  E.1 Sin resultados (Paso 4): Si la búsqueda no coincide, el sistema muestra la tabla 
+vacía con el texto "No se encontraron agricultores con ese criterio".  
+Código y Nombre  CU-03.3: Editar expediente de agricultor  
+Requisito  REQ -03.3  
+Actor  Administrador de la Finca  
+Precondición  El administrador ha ejecutado previamente el CU -03.2 y localizado al empleado.  
+=== PAGINA 11 ===
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  11 Flujo Normal  1. En la vista del expediente, el administrador hace clic en "Editar Datos".  
+2. El sistema habilita los campos de texto para Nombres, Apellidos y 
+Correo. Nota: El campo Cédula y Contraseña permanecen estrictamente 
+bloqueados.  
+3. El administrador corrige el error tipográfico y presiona "Actualizar".  
+4. El sistema valida los formatos y verifica que el nuevo correo no 
+pertenezca a otro usuario.  
+ 
+5. El sistema guarda la actualización (Transacción ACID).  
+ 
+6. Muestra el mensaje: "Expediente actualizado" . 
+ 
+Excepciones (Flujo 
+Alternativo)  
+E.1 Correo en uso (Paso 4):  El sistema rechaza la edición y notifica "El correo 
+especificado ya pertenece a otra cuenta activa" . 
+Código y Nombre  CU-03.4 Eliminar agricultor  
+Requisito  REQ -03.4 
+Actor  Administrador  
+Precondición  El agricultor existe y está en estado activo.  
+=== PAGINA 12 ===
+ 
+ 
+Proyecto Jirah - Sistema de Gestión Agrícola  12 Flujo Normal  1. En la vista del expediente, el administrador hace clic en el botón de 
+peligro "Desactivar Cuenta".  
+2. El sistema despliega un modal advirtiendo: "¿Está seguro? Este 
+usuario no podrá acceder al sistema, pero su historial de cosechas se 
+mantendrá intacto" . 
+3. El administrador confirma la acción.  
+4. El sistema ejecuta un Soft-Delete  (cambia la bandera isActive  a 
+falso en la base de datos).  
+5. El sistema revoca inmediatamente los tokens de sesión del 
+agricultor.  
+6. Se muestra el mensaje: "Cuenta desactivada exitosamente" . 
+Excepciones (Flujo 
+Alternativo)  E.1 Auto -desactivación (Paso 3): Si el administrador intenta realizar esta 
+acción sobre su propia cuenta, el sistema bloquea el flujo mostrando 
+"Operación denegada. No puede desactivar su propia sesión".  

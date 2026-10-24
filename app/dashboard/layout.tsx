@@ -1,14 +1,17 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { SessionProvider } from 'next-auth/react';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
+import CampoSessionProvider, { cerrarSesionCampo } from '@/lib/auth/CampoSessionProvider';
 import { useEffect, useState } from 'react';
 import { useSyncManager } from '@/lib/hooks/useSyncManager';
+import OfflineReadiness from '@/app/ui/OfflineReadiness';
+import { useTema } from '@/lib/hooks/useTema';
 import { 
   LayoutDashboard, Users, LayoutList, Scale, CheckSquare, 
-  Settings, LogOut, Sun, Moon, Wifi, WifiOff 
+  FileText, LogOut, Sun, Moon, Wifi, WifiOff
 } from 'lucide-react';
 
 type SubItem  = { href: string; label: string };
@@ -19,8 +22,10 @@ type NavGroup = { section: string; adminOnly?: boolean; items: NavItem[] };
 const NAV: NavGroup[] = [
   {
     section: 'General',
+    adminOnly: true,
     items: [
       { href: '/dashboard', label: 'Dashboard', exact: true, icon: <LayoutDashboard size={18} /> },
+      { href: '/dashboard/reportes', label: 'Reportes', exact: false, icon: <FileText size={18} /> },
     ],
   },
   {
@@ -28,6 +33,7 @@ const NAV: NavGroup[] = [
     adminOnly: true,
     items: [
       { href: '/dashboard/personal', label: 'Personal', exact: false, icon: <Users size={18} /> },
+      { href: '/dashboard/comercial', label: 'Entregas y devoluciones', exact: false, icon: <FileText size={18} /> },
       {
         href: '/dashboard/catalogos', label: 'Catálogos', exact: false,
         icon: <LayoutList size={18} />,
@@ -43,44 +49,42 @@ const NAV: NavGroup[] = [
     section: 'Campo',
     items: [
       { href: '/dashboard/campo/pesaje', label: 'Pesaje Bruto', exact: false, icon: <Scale size={18} /> },
+      { href: '/dashboard/campo/pendientes', label: 'Pendientes', exact: false, icon: <FileText size={18} /> },
       { href: '/dashboard/campo/clasificacion', label: 'Clasificación', exact: false, icon: <CheckSquare size={18} /> },
     ],
   },
 ];
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const pathname = usePathname();
-  const user = session?.user as any;
+  const user = session?.user;
   const initials = user ? `${user.nombres?.[0] ?? ''}${user.apellidos?.[0] ?? ''}`.toUpperCase() : '?';
 
-  const { isOnline } = useSyncManager();
-  const [theme, setTheme] = useState<'light'|'dark'>('light');
-
+  const { isOnline, syncError, retrySync } = useSyncManager();
+  const { tema, guardar: guardarTema } = useTema(user?.id);
+  const theme = tema === 'OSCURO' ? 'dark' : 'light';
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [storageBlocked, setStorageBlocked] = useState(false);
   useEffect(() => {
-    const saved = localStorage.getItem('jirah-tema');
-    if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setTheme('dark');
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      setTheme('light');
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
+    const blocked = () => setStorageBlocked(true);
+    window.addEventListener('jirah-storage-blocked', blocked);
+    return () => window.removeEventListener('jirah-storage-blocked', blocked);
+  }, []);
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
   }, []);
 
+  useEffect(() => {
+    if (status === 'unauthenticated') router.replace('/login');
+    if (status === 'authenticated' && !user?.id) void cerrarSesionCampo();
+  }, [status, user?.id, router]);
+
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('jirah-tema', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
+    guardarTema(tema === 'CLARO' ? 'OSCURO' : 'CLARO');
   };
 
   function isActive(href: string, exact: boolean) {
@@ -106,12 +110,13 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-full bg-agri-bg-light dark:bg-[#09090b] overflow-hidden">
       
       {/* 1. SIDEBAR ESTRICTO (Fijo a la izquierda) */}
-      <aside className="w-[260px] flex-shrink-0 h-full bg-white dark:bg-[#111113] border-r border-gray-200 dark:border-gray-800 flex flex-col z-20">
+      {menuOpen && <button aria-label="Cerrar navegación" className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setMenuOpen(false)} />}
+      <aside id="navegacion-principal" onClick={e => { if (e.target instanceof Element && e.target.closest('a')) setMenuOpen(false); }} className={`w-[260px] max-w-[85vw] flex-shrink-0 h-full bg-white dark:bg-[#111113] border-r border-gray-200 dark:border-gray-800 flex-col fixed md:relative z-40 md:z-20 ${menuOpen ? 'flex' : 'hidden md:flex'}`}>
          {/* Logo and Brand */}
          <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-200">
            <Link href="/dashboard" className="flex items-center gap-3 group">
              {/* REDUCED LOGO (No giant sizes here) */}
-             <img src="/Logo.jpeg" alt="Logo Finca Jirah" className="h-12 w-auto object-contain rounded-lg shadow-sm" />
+             <Image src="/Logo.jpeg" width={48} height={48} alt="Logo Finca Jirah" className="h-12 w-auto object-contain rounded-lg shadow-sm" />
              <div>
                <div className="text-base font-bold tracking-tight text-agri-green-dark">Finca <span className="text-agri-green-main">Jirah</span></div>
                <div className="text-[0.65rem] text-agri-slate font-semibold uppercase tracking-widest">Sistema Agrícola</div>
@@ -119,6 +124,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
            </Link>
          </div>
 
+         <button aria-label="Cerrar menú" className="md:hidden min-h-11 border-b" onClick={() => setMenuOpen(false)}>Cerrar menú</button>
          {/* Scrollable Navigation */}
          <div className="flex-1 overflow-y-auto custom-scrollbar">
            <nav className="px-3 py-4 flex flex-col gap-1">
@@ -134,6 +140,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                        <div key={item.href}>
                           <Link
                            href={item.href}
+                           onNavigate={event => { if (!navigator.onLine && item.href.startsWith('/dashboard/campo/')) { event.preventDefault(); window.location.assign(item.href); } }}
                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                              active || subActive 
                                ? 'bg-agri-green-main/10 text-agri-green-dark font-semibold' 
@@ -185,8 +192,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
              </button>
            </div>
            
-           <div 
-             onClick={() => signOut({ callbackUrl: '/login' })}
+           <button type="button" aria-label="Cerrar sesión"
+             onClick={() => void cerrarSesionCampo()}
              className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-100 transition-all duration-200 group"
            >
              <div className="w-8 h-8 rounded-full bg-agri-green-main text-white flex items-center justify-center text-xs font-bold shadow-sm">
@@ -197,7 +204,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                <div className="text-[0.65rem] text-agri-slate uppercase tracking-wider font-medium">{user?.rol}</div>
              </div>
              <LogOut size={16} className="text-gray-400 group-hover:text-red-500 transition-colors" />
-           </div>
+           </button>
          </div>
       </aside>
 
@@ -205,11 +212,12 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative z-10">
         
         {/* HEADER SUPERIOR (Opcional, altura fija) */}
-        <header className="h-16 flex-shrink-0 bg-white dark:bg-[#111113] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-6 lg:px-8">
-           <h2 className="text-sm font-semibold text-agri-green-dark">
+        <header className="h-16 flex-shrink-0 bg-white dark:bg-[#111113] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2 px-3 lg:px-8">
+           <button aria-label="Abrir menú" aria-expanded={menuOpen} aria-controls="navegacion-principal" className="md:hidden min-h-11 px-2 border rounded" onClick={() => setMenuOpen(true)}>Menú</button>
+           <h2 className="text-sm font-semibold text-agri-green-dark truncate">
              Finca Jirah - {currentLabel}
            </h2>
-           <div className="flex items-center gap-4">
+           <div className="flex items-center gap-2 shrink-0">
              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                isOnline 
                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
@@ -227,8 +235,16 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
            </div>
         </header>
 
+        {storageBlocked && <p role="alert" className="p-3 bg-amber-50 text-amber-900">Cierre las otras pestañas de JIRAH y recargue esta página para actualizar el almacenamiento. Sus pendientes se conservan.</p>}
+        {syncError && (
+          <div role="alert" className="px-6 py-3 bg-amber-50 text-amber-900 border-b border-amber-200 text-sm">
+            <p>Hay registros pendientes de sincronización: {syncError}</p>
+            <button type="button" onClick={retrySync} disabled={!isOnline} className="mt-1 underline font-semibold disabled:opacity-50">Reintentar sincronización</button>
+          </div>
+        )}
+        {user?.id && <OfflineReadiness key={user.id} userId={user.id} online={isOnline} />}
         {/* CONTENIDO SCROLLEABLE (Aquí va el Dashboard, Pesajes, etc.) */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 w-full">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 w-full">
           <div className="max-w-[1600px] mx-auto w-full">
             {children}
           </div>
@@ -241,8 +257,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <CampoSessionProvider>
       <DashboardContent>{children}</DashboardContent>
-    </SessionProvider>
+    </CampoSessionProvider>
   );
 }

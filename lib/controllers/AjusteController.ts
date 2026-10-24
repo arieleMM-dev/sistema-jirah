@@ -6,8 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from './AuthController';
+import { getAuthenticatedSession } from '@/lib/auth/session';
 import { AjusteService } from '@/lib/services/ajuste.service';
 
 const ERROR_MAP: Record<string, [number, string]> = {
@@ -31,8 +30,9 @@ export const AjusteController = {
    * CU-05.3 — Listar historial de ajustes de comprador.
    */
   async list(_req: NextRequest) {
-    const session = await getServerSession(authOptions);
+    const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    if (session.user.rol !== 'ADMIN') return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     try {
       const ajustes = await AjusteService.listar();
       return NextResponse.json({ ajustes });
@@ -44,8 +44,9 @@ export const AjusteController = {
    * CU-05.3 — Registrar ajuste de comprador (peso rechazado).
    */
   async create(req: NextRequest) {
-    const session = await getServerSession(authOptions);
+    const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    if (session.user.rol !== 'ADMIN') return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     try {
       const body = await req.json();
 
@@ -66,7 +67,7 @@ export const AjusteController = {
       const resultado = await AjusteService.registrar({
         clasificacionId: body.clasificacionId,
         compradorId: body.compradorId,
-        pesoRechazado: Number(body.pesoRechazado),
+        pesoRechazado: body.pesoRechazado,
         motivoRechazo: body.motivoRechazo,
         observaciones: body.observaciones,
       });
@@ -80,8 +81,9 @@ export const AjusteController = {
    * CU-05.3 — Obtener detalle de un ajuste.
    */
   async get(_req: NextRequest, id: string) {
-    const session = await getServerSession(authOptions);
+    const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    if (session.user.rol !== 'ADMIN') return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
     try {
       const ajuste = await AjusteService.obtener(id);
       return NextResponse.json({ ajuste });

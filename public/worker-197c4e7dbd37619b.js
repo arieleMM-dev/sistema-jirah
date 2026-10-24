@@ -1,0 +1,1 @@
+self.addEventListener("activate",a=>{a.waitUntil(Promise.all(["apis","jirah-campo-pages-v1","jirah-campo-rsc-v1","jirah-campo-assets-v1"].map(a=>caches.delete(a))))});

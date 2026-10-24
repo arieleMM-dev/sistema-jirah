@@ -14,6 +14,18 @@
 import { CampanaRepo, LoteRepo, CompradorRepo } from '@/lib/repositories/CatalogoRepository';
 import type { TipoComprador } from '@prisma/client';
 
+function texto(value: unknown, requerido = false, max = 200) {
+  if (value === undefined && !requerido) return;
+  if (typeof value !== 'string' || value.length > max || (requerido && !value.trim())) throw new Error('DATOS_INVALIDOS');
+}
+function validarBase(data: { nombre?: string }, crear: boolean) { texto(data.nombre, crear || data.nombre !== undefined); }
+
+function validarParametros(minimoPGr: number, minimoGGr: number, fechaNacimiento?: string | null) {
+  if (!Number.isFinite(minimoPGr) || !Number.isFinite(minimoGGr) || minimoPGr <= 0 || minimoGGr <= minimoPGr) throw new Error('PARAMETROS_INVALIDOS');
+  if (fechaNacimiento != null && (typeof fechaNacimiento !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(fechaNacimiento) ||
+    !Number.isFinite(new Date(fechaNacimiento).getTime()) || new Date(fechaNacimiento).toISOString().slice(0, 10) !== fechaNacimiento)) throw new Error('FECHA_NACIMIENTO_INVALIDA');
+}
+
 // ─── CAMPAÑAS ───────────────────────────────────────────────────
 export const CampanaService = {
   async listar() {
@@ -30,9 +42,15 @@ export const CampanaService = {
     codigo: string;
     nombre: string;
     funda: string;
+    cultivo?: string;
     taraBase?: number;
-    compradorId?: string;
+    compradorId?: string | null;
+    minimoPGr?: number;
+    minimoGGr?: number;
+    fechaNacimiento?: string | null;
   }) {
+    validarBase(input, true); texto(input.codigo, true); texto(input.funda, true); texto(input.cultivo, input.cultivo !== undefined);
+    if (input.compradorId !== null) texto(input.compradorId);
     if (!input.codigo.trim()) throw new Error('CODIGO_REQUERIDO');
     if (!input.nombre.trim()) throw new Error('NOMBRE_REQUERIDO');
     if (!input.funda.trim())  throw new Error('FUNDA_REQUERIDA');
@@ -41,13 +59,18 @@ export const CampanaService = {
     if (existente) throw new Error('CODIGO_DUPLICADO');
 
     const tara = input.taraBase ?? 1.70;
-    if (tara <= 0 || tara > 10) throw new Error('TARA_INVALIDA');
+    if (!Number.isFinite(tara) || tara <= 0 || tara > 10) throw new Error('TARA_INVALIDA');
+    const minimoPGr = input.minimoPGr ?? 180;
+    const minimoGGr = input.minimoGGr ?? 280;
+    validarParametros(minimoPGr, minimoGGr, input.fechaNacimiento);
 
     return CampanaRepo.create({
-      ...input,
+      compradorId: input.compradorId,
+      minimoPGr, minimoGGr, fechaNacimiento: input.fechaNacimiento,
       codigo: input.codigo.trim().toUpperCase(),
       nombre: input.nombre.trim(),
       funda:  input.funda.trim(),
+      cultivo: input.cultivo?.trim() ?? 'Pitahaya',
       taraBase: tara,
     });
   },
@@ -55,12 +78,23 @@ export const CampanaService = {
   async actualizar(id: string, data: {
     nombre?: string;
     funda?: string;
+    cultivo?: string;
     taraBase?: number;
     compradorId?: string | null;
+    minimoPGr?: number;
+    minimoGGr?: number;
+    fechaNacimiento?: string | null;
   }) {
+    validarBase(data, false); texto(data.funda, data.funda !== undefined); texto(data.cultivo, data.cultivo !== undefined);
+    if (data.compradorId !== null) texto(data.compradorId);
+    if (data.taraBase !== undefined && (!Number.isFinite(data.taraBase) || data.taraBase <= 0 || data.taraBase > 10)) {
+      throw new Error('TARA_INVALIDA');
+    }
     const campana = await CampanaRepo.findById(id);
     if (!campana) throw new Error('CAMPANA_NO_ENCONTRADA');
     if (!campana.isActive) throw new Error('CAMPANA_INACTIVA');
+    if (data.cultivo !== undefined && data.cultivo.trim() !== campana.cultivo && await CampanaRepo.countPesajes(id) > 0) throw new Error('CULTIVO_BLOQUEADO');
+    validarParametros(data.minimoPGr ?? campana.minimoPGr, data.minimoGGr ?? campana.minimoGGr, data.fechaNacimiento);
 
     // Bloquear taraBase si ya hay pesajes registrados
     if (data.taraBase !== undefined && data.taraBase !== campana.taraBase) {
@@ -72,8 +106,12 @@ export const CampanaService = {
     const updateData = {
       ...(data.nombre !== undefined && { nombre: data.nombre.trim() }),
       ...(data.funda !== undefined && { funda: data.funda.trim() }),
+      ...(data.cultivo !== undefined && { cultivo: data.cultivo.trim() }),
       ...(data.taraBase !== undefined && { taraBase: data.taraBase }),
       ...(data.compradorId !== undefined && { compradorId: data.compradorId }),
+      ...(data.minimoPGr !== undefined && { minimoPGr: data.minimoPGr }),
+      ...(data.minimoGGr !== undefined && { minimoGGr: data.minimoGGr }),
+      ...(data.fechaNacimiento !== undefined && { fechaNacimiento: data.fechaNacimiento }),
     };
 
     return CampanaRepo.update(id, updateData);
@@ -84,7 +122,8 @@ export const CampanaService = {
     if (!campana) throw new Error('CAMPANA_NO_ENCONTRADA');
     if (!campana.isActive) throw new Error('CAMPANA_YA_CERRADA');
 
-    // Verificar sincronización pendiente
+    // Solo puede comprobarse la información central. El cierre conserva su fecha
+    // para recibir después capturas anteriores que aún estén en los teléfonos.
     const { prisma } = await import('@/lib/prisma');
     const pendientes = await prisma.pesajeBruto.count({
       where: { campanaId: id, syncStatus: 'PENDING' },
@@ -106,7 +145,10 @@ export const LoteService = {
     nombre: string;
     hectareas?: number;
     descripcion?: string;
+    variedad?: string;
   }) {
+    validarBase(input, true); texto(input.codigo, true); texto(input.descripcion, false, 2000); texto(input.variedad);
+    if (input.hectareas !== undefined && (!Number.isFinite(input.hectareas) || input.hectareas <= 0)) throw new Error('DATOS_INVALIDOS');
     if (!input.codigo.trim()) throw new Error('CODIGO_REQUERIDO');
     if (!input.nombre.trim()) throw new Error('NOMBRE_REQUERIDO');
 
@@ -114,7 +156,7 @@ export const LoteService = {
     if (existente) throw new Error('CODIGO_DUPLICADO');
 
     return LoteRepo.create({
-      ...input,
+      hectareas: input.hectareas, descripcion: input.descripcion?.trim(), variedad: input.variedad?.trim(),
       codigo: input.codigo.trim().toUpperCase(),
       nombre: input.nombre.trim(),
     });
@@ -124,7 +166,10 @@ export const LoteService = {
     nombre?: string;
     hectareas?: number;
     descripcion?: string;
+    variedad?: string;
   }) {
+    validarBase(data, false); texto(data.descripcion, false, 2000); texto(data.variedad);
+    if (data.hectareas !== undefined && (!Number.isFinite(data.hectareas) || data.hectareas <= 0)) throw new Error('DATOS_INVALIDOS');
     const lote = await LoteRepo.findById(id);
     if (!lote) throw new Error('LOTE_NO_ENCONTRADO');
 
@@ -133,6 +178,7 @@ export const LoteService = {
       ...(data.nombre !== undefined && { nombre: data.nombre.trim() }),
       ...(data.hectareas !== undefined && { hectareas: data.hectareas }),
       ...(data.descripcion !== undefined && { descripcion: data.descripcion }),
+      ...(data.variedad !== undefined && { variedad: data.variedad.trim() || null }),
     };
 
     return LoteRepo.update(id, updateData);
@@ -166,6 +212,8 @@ export const CompradorService = {
     contacto?: string;
     toleranciaPct?: number;
   }) {
+    validarBase(input, true); texto(input.ruc); texto(input.contacto);
+    if (!['EXPORTADOR', 'MAYORISTA'].includes(input.tipo)) throw new Error('DATOS_INVALIDOS');
     if (!input.nombre.trim()) throw new Error('NOMBRE_REQUERIDO');
 
     if (input.ruc) {
@@ -174,10 +222,10 @@ export const CompradorService = {
     }
 
     const tol = input.toleranciaPct ?? 4.0;
-    if (tol < 0 || tol > 100) throw new Error('TOLERANCIA_INVALIDA');
+    if (tol !== 4) throw new Error('TOLERANCIA_INVALIDA');
 
     return CompradorRepo.create({
-      ...input,
+      tipo: input.tipo, contacto: input.contacto?.trim(),
       nombre: input.nombre.trim(),
       ruc: input.ruc?.trim() || undefined,
       toleranciaPct: tol,
@@ -190,6 +238,11 @@ export const CompradorService = {
     contacto?: string;
     toleranciaPct?: number;
   }) {
+    validarBase(data, false); texto(data.contacto);
+    if (data.tipo !== undefined && !['EXPORTADOR', 'MAYORISTA'].includes(data.tipo)) throw new Error('DATOS_INVALIDOS');
+    if (data.toleranciaPct !== undefined && data.toleranciaPct !== 4) {
+      throw new Error('TOLERANCIA_INVALIDA');
+    }
     const comp = await CompradorRepo.findById(id);
     if (!comp) throw new Error('COMPRADOR_NO_ENCONTRADO');
 

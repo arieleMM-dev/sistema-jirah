@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 type Agricultor = {
@@ -18,7 +17,7 @@ type Agricultor = {
 };
 
 export default function AgricultorDetailClient({ id }: { id: string }) {
-  const router = useRouter();
+
   const [agricultor, setAgricultor] = useState<Agricultor | null>(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -45,6 +44,7 @@ export default function AgricultorDetailClient({ id }: { id: string }) {
           telefono: d.agricultor.telefono || '',
         });
       })
+      .catch(() => showToast('No se pudo cargar el expediente.', 'error'))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -62,6 +62,7 @@ export default function AgricultorDetailClient({ id }: { id: string }) {
       setAgricultor(prev => prev ? { ...prev, ...form } : prev);
       setEditMode(false);
       showToast('Expediente actualizado');
+    } catch { showToast('No se pudo confirmar la operación. Compruebe la conexión.', 'error');
     } finally {
       setSaving(false);
     }
@@ -76,6 +77,7 @@ export default function AgricultorDetailClient({ id }: { id: string }) {
       showToast('Cuenta desactivada exitosamente');
       setShowModal(false);
       setTimeout(() => window.location.reload(), 1500);
+    } catch { showToast('No se pudo confirmar la operación. Compruebe la conexión.', 'error');
     } finally {
       setSaving(false);
     }
@@ -93,9 +95,17 @@ export default function AgricultorDetailClient({ id }: { id: string }) {
       if (!res.ok) { showToast(data.error, 'error'); return; }
       showToast('Cuenta reactivada exitosamente');
       setAgricultor(prev => prev ? { ...prev, isActive: true } : prev);
+    } catch { showToast('No se pudo confirmar la operación. Compruebe la conexión.', 'error');
     } finally {
       setSaving(false);
     }
+  }
+
+  async function invitar() {
+    setSaving(true);
+    try { const r = await fetch(`/api/agricultores/${id}/invitacion`, { method: 'POST' }); const d = await r.json(); showToast(d.message ?? d.error, r.ok ? 'success' : 'error'); }
+    catch { showToast('No se pudo enviar el enlace.', 'error'); }
+    finally { setSaving(false); }
   }
 
   const rolLabel = (r: string) =>
@@ -156,7 +166,8 @@ export default function AgricultorDetailClient({ id }: { id: string }) {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>CU-03.2/3/4 — Ver, editar y gestionar cuenta</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
-          {!editMode && agricultor.isActive && (
+          {agricultor.isActive && <button className="btn btn-secondary btn-sm" disabled={saving} onClick={() => void invitar()}>Enviar enlace de acceso</button>}
+            {!editMode && agricultor.isActive && (
             <button id="btn-editar" className="btn btn-secondary btn-sm" onClick={() => setEditMode(true)}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />

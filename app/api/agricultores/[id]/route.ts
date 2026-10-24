@@ -9,19 +9,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/controllers/AuthController';
+import { getAuthenticatedSession } from '@/lib/auth/session';
+import type { Session } from 'next-auth';
 import { AgricultorController } from '@/lib/controllers/AgricultorController';
 
 type Params = Promise<{ id: string }>;
 
-function esAdmin(session: any): boolean {
+function esAdmin(session: Session | null): boolean {
   return session?.user?.rol === 'ADMIN';
 }
 
 /** GET /api/agricultores/[id] — CU-03.2: Ver expediente */
 export async function GET(req: NextRequest, { params }: { params: Params }) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthenticatedSession();
   if (!session || !esAdmin(session)) {
     return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
   }
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: Params }) {
 
 /** PUT /api/agricultores/[id] — CU-03.3: Editar expediente */
 export async function PUT(req: NextRequest, { params }: { params: Params }) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthenticatedSession();
   if (!session || !esAdmin(session)) {
     return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
   }
@@ -41,25 +41,25 @@ export async function PUT(req: NextRequest, { params }: { params: Params }) {
 
 /** DELETE /api/agricultores/[id] — CU-03.4: Desactivar cuenta */
 export async function DELETE(req: NextRequest, { params }: { params: Params }) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthenticatedSession();
   if (!session || !esAdmin(session)) {
     return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
   }
   const { id } = await params;
-  const adminId = (session.user as any).id;
+  const adminId = session.user.id;
   return AgricultorController.desactivar(id, adminId);
 }
 
 /** PATCH /api/agricultores/[id] — CU-03.4: Reactivar cuenta */
 export async function PATCH(req: NextRequest, { params }: { params: Params }) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthenticatedSession();
   if (!session || !esAdmin(session)) {
     return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
   }
   const { id } = await params;
-  const { action } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => null);
   
-  if (action === 'reactivar') {
+  if (body?.action === 'reactivar') {
     return AgricultorController.reactivar(id);
   }
   

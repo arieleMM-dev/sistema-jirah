@@ -1,10 +1,7 @@
-// ============================================================
-// PATRÓN ADAPTER — Transforma datos de IndexedDB a Prisma
-// ============================================================
-// Convierte el JSON crudo almacenado en el dispositivo offline
-// al formato relacional que esperan las tablas de PostgreSQL/SQLite.
-
+// Contratos persistidos en IndexedDB. Los campos opcionales permiten detectar colas antiguas sin inventar datos.
+export interface EstadoOperacionLocal { error?: string; intentadoEn?: string; pausada?: boolean }
 export interface OfflinePesajePayload {
+  _sync?: EstadoOperacionLocal;
   localId: string;
   timestamp: string;
   peso_bruto: number;
@@ -13,10 +10,15 @@ export interface OfflinePesajePayload {
   campana_codigo: string;
   lote_codigo: string;
   observaciones?: string;
+  tara_base?: number;
+  version_parametros?: number;
+  minimo_p_gr?: number;
+  minimo_g_gr?: number;
   syncStatus: 'PENDING' | 'SYNCING';
 }
 
-export interface OfflineClasificacionPayload {
+export interface OfflineClasificacionAnterior {
+  _sync?: EstadoOperacionLocal;
   localId: string;
   pesaje_local_id: string;
   timestamp: string;
@@ -25,88 +27,25 @@ export interface OfflineClasificacionPayload {
   descarte_kg: number;
   clasificador_id: string;
   observaciones?: string;
+  gavetas_exportacion?: number;
+  peso_exportacion_bruto?: number;
+  gavetas_nacional?: number;
+  peso_nacional_bruto?: number;
+  forzar?: boolean;
 }
 
-// Formato esperado por Prisma (estructura relacional limpia)
-export interface PrismaCreatePesajeInput {
-  pesoBrutoKg: number;
-  numGavetas: number;
-  taraTotal: number;
-  pesoNetoKg: number;
+export interface OfflineClasificacionJornada {
+  revisionLocal?: { operacionAnteriorId: string; motivo: string; fechaRevision: string; contenidoAnterior: OfflineClasificacionPayload };
+  _sync?: EstadoOperacionLocal;
+  localId: string;
+  timestamp: string;
+  versionFormato: 2;
+  jornadaId: string;
+  version: number;
+  pesajeIds: string[];
+  detalles: import('@/lib/cosecha').PesoCategoria[];
+  clasificador_id: string;
   observaciones?: string;
-  agricultorId: string;
-  campanaId: string;
-  loteId: string;
-  syncStatus: 'PENDING' | 'SYNCING' | 'SYNCED';
 }
 
-export interface PrismaCreateClasificacionInput {
-  pesoExportacionKg: number;
-  pesoNacionalKg: number;
-  pesoDescarte: number;
-  totalClasificado: number;
-  margenErrorPct: number;
-  dentroDelMargen: boolean;
-  observaciones?: string;
-  pesajeBrutoId: string;
-  clasificadorId: string;
-}
-
-// ─────────────────────────────────────────────
-// Adapter concreto
-// ─────────────────────────────────────────────
-export class OfflinePayloadAdapter {
-  private readonly PESO_GAVETA_KG = 1.70;
-  private readonly MARGEN_PERMITIDO = 0.04; // 4%
-
-  /**
-   * Adapta un payload de pesaje offline al formato de Prisma.
-   * Resuelve FKs (campanaId, loteId) desde sus códigos.
-   */
-  adaptPesaje(
-    payload: OfflinePesajePayload,
-    resolvedIds: { campanaId: string; loteId: string }
-  ): PrismaCreatePesajeInput {
-    const taraTotal = payload.num_gavetas * this.PESO_GAVETA_KG;
-    const pesoNetoKg = payload.peso_bruto - taraTotal;
-
-    return {
-      pesoBrutoKg: payload.peso_bruto,
-      numGavetas: payload.num_gavetas,
-      taraTotal,
-      pesoNetoKg,
-      observaciones: payload.observaciones,
-      agricultorId: payload.agricultor_id,
-      campanaId: resolvedIds.campanaId,
-      loteId: resolvedIds.loteId,
-      syncStatus: 'SYNCED',
-    };
-  }
-
-  /**
-   * Adapta un payload de clasificación offline al formato de Prisma.
-   * Calcula el margen de error con la regla del ±4%.
-   */
-  adaptClasificacion(
-    payload: OfflineClasificacionPayload,
-    pesajeBrutoId: string,
-    pesoBrutoKg: number
-  ): PrismaCreateClasificacionInput {
-    const totalClasificado = payload.exportacion_kg + payload.nacional_kg + payload.descarte_kg;
-    const diferencia = Math.abs(pesoBrutoKg - totalClasificado);
-    const margenErrorPct = pesoBrutoKg > 0 ? (diferencia / pesoBrutoKg) * 100 : 0;
-    const dentroDelMargen = margenErrorPct <= this.MARGEN_PERMITIDO * 100;
-
-    return {
-      pesoExportacionKg: payload.exportacion_kg,
-      pesoNacionalKg: payload.nacional_kg,
-      pesoDescarte: payload.descarte_kg,
-      totalClasificado,
-      margenErrorPct: Math.round(margenErrorPct * 100) / 100,
-      dentroDelMargen,
-      observaciones: payload.observaciones,
-      pesajeBrutoId,
-      clasificadorId: payload.clasificador_id,
-    };
-  }
-}
+export type OfflineClasificacionPayload = OfflineClasificacionAnterior | OfflineClasificacionJornada;

@@ -3,15 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "postinstall": "node scripts/harden-braces.cjs",
+    "prebuild": "node scripts/harden-braces.cjs",
+    "predev": "node scripts/harden-braces.cjs",
+    "prestart": "node scripts/harden-braces.cjs",
+    "dev": "next dev --webpack --hostname 127.0.0.1",
     "build": "next build --webpack",
-    "start": "next start",
+    "start": "next start --hostname 127.0.0.1",
     "lint": "eslint",
+    "test": "node tests/run.cjs",
+    "test:http": "node tests/run.cjs --http",
     "db:generate": "prisma generate",
+    "db:backup": "node scripts/backup-db.cjs",
+    "db:deploy": "prisma migrate deploy",
     "db:migrate": "prisma migrate dev --name init",
     "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
     "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force"
+    "db:reset": "prisma migrate reset --force",
+    "test:e2e": "node tests/run.cjs --browser",
+    "typecheck": "tsc --noEmit",
+    "mail:dev": "node scripts/correo-local.cjs",
+    "mail:stop": "node scripts/correo-local.cjs --stop",
+    "test:mail": "node tests/run.cjs --mail"
   },
   "prisma": {
     "seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
@@ -23,30 +36,48 @@
     "@prisma/client": "^7.8.0",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
+    "exceljs": "^4.4.0",
     "idb": "^8.0.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.20.0",
-    "next": "16.2.9",
+    "next": "^16.4.0",
     "next-auth": "^4.24.14",
     "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "uuid": "^14.0.1",
-    "xlsx": "^0.18.5"
+    "smtp-mailer": "npm:nodemailer@^10.0.16",
+    "three": "^0.186.1",
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.5.4",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "^16.4.0",
+    "fake-indexeddb": "^6.2.5",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    },
+    "mysql2": "3.24.5",
+    "@rollup/plugin-terser": {
+      "serialize-javascript": "7.1.2"
+    },
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }

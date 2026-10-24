@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 
 export const DashboardRepo = {
   async getStats(filtros: {
@@ -14,7 +15,7 @@ export const DashboardRepo = {
     loteId?: string;
     campanaId?: string;
   } = {}) {
-    const where: any = {};
+    const where: Prisma.PesajeBrutoWhereInput = {};
     if (filtros.fechaDesde || filtros.fechaHasta) {
       where.fechaRegistro = {};
       if (filtros.fechaDesde) where.fechaRegistro.gte = filtros.fechaDesde;
@@ -44,9 +45,11 @@ export const DashboardRepo = {
     });
 
     // Alertas de margen (clasificaciones fuera de ±4%)
-    const alertasMargen = await prisma.clasificacion.count({
-      where: { auditFlag: true },
-    });
+    const [alertasAnteriores, alertasJornada] = await Promise.all([
+      prisma.clasificacion.count({ where: { auditFlag: true, pesajeBruto: where } }),
+      prisma.jornadaCosecha.count({ where: { estado: 'PENDIENTE_APROBACION', pesajes: { some: where } } }),
+    ]);
+    const alertasMargen = alertasAnteriores + alertasJornada;
 
     // Actividad reciente (últimos 8 pesajes)
     const actividadReciente = await prisma.pesajeBruto.findMany({
@@ -56,6 +59,7 @@ export const DashboardRepo = {
         campana:    { select: { codigo: true } },
         lote:       { select: { codigo: true, nombre: true } },
         clasificacion: { select: { dentroDelMargen: true, auditFlag: true } },
+        jornada: { select: { estado: true, clasificacion: { select: { dentroDelMargen: true } } } },
       },
       orderBy: { fechaRegistro: 'desc' },
       take: 8,
@@ -64,17 +68,21 @@ export const DashboardRepo = {
     // KG por lote para gráfico
     const pesajesRaw = await prisma.pesajeBruto.findMany({
       where,
-      include: { lote: { select: { codigo: true } }, clasificacion: { select: { dentroDelMargen: true } } },
+      include: { lote: { select: { codigo: true } }, clasificacion: { select: { dentroDelMargen: true } },
+        jornada: { select: { id: true, estado: true } } },
     });
 
     const kgPorLote: Record<string, { codigo: string; kg: number; alertas: number }> = {};
+    const countedAlerts = new Set<string>();
     for (const p of pesajesRaw) {
       if (!kgPorLote[p.loteId]) {
         kgPorLote[p.loteId] = { codigo: p.lote.codigo, kg: 0, alertas: 0 };
       }
       kgPorLote[p.loteId].kg += p.pesoNetoKg;
-      if (p.clasificacion && !p.clasificacion.dentroDelMargen) {
+      const alertKey = p.jornada?.id ?? p.id;
+      if (!countedAlerts.has(alertKey) && ((p.clasificacion && !p.clasificacion.dentroDelMargen) || p.jornada?.estado === 'PENDIENTE_APROBACION')) {
         kgPorLote[p.loteId].alertas += 1;
+        countedAlerts.add(alertKey);
       }
     }
 
@@ -84,7 +92,8 @@ export const DashboardRepo = {
       campanaActiva,
       lotesConActividad: lotesConActividad.length,
       alertasMargen,
-      actividadReciente,
+      actividadReciente: actividadReciente.map(p => ({ ...p, clasificacion: p.clasificacion ?? (p.jornada?.clasificacion
+        ? { dentroDelMargen: p.jornada.clasificacion.dentroDelMargen, auditFlag: p.jornada.estado === 'PENDIENTE_APROBACION' } : null) })),
       kgPorLote:        Object.values(kgPorLote).sort((a, b) => a.codigo.localeCompare(b.codigo)),
     };
   },

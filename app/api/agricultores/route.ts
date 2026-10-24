@@ -9,11 +9,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/controllers/AuthController';
+import { getAuthenticatedSession } from '@/lib/auth/session';
+import type { Session } from 'next-auth';
 import { AgricultorController } from '@/lib/controllers/AgricultorController';
 
-function esAdmin(session: any): boolean {
+function esAdmin(session: Session | null): boolean {
   return session?.user?.rol === 'ADMIN';
 }
 
@@ -22,7 +22,7 @@ function esAdmin(session: any): boolean {
  * CU-03.2 — Buscar y listar trabajadores.
  */
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthenticatedSession();
   if (!session || !esAdmin(session)) {
     return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
   }
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
  * CU-03.1 — Crear nueva ficha contractual.
  */
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthenticatedSession();
   if (!session || !esAdmin(session)) {
     return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 });
   }

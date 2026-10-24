@@ -2,7 +2,7 @@
   "name": "Finca Jirah — Sistema de Gestión Agrícola",
   "short_name": "Jirah",
   "description": "Control, gestión y trazabilidad de cosechas de pitahaya amarilla",
-  "start_url": "/dashboard",
+  "start_url": "/dashboard/campo/pesaje",
   "display": "standalone",
   "background_color": "#0f1117",
   "theme_color": "#10b981",

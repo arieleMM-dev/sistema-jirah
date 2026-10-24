@@ -91,11 +91,6 @@ export const AgricultorService = {
       const emailEnUso = await UserRepository.existsByEmail(campos.email, id);
       if (emailEnUso) throw new Error('EMAIL_EN_USO');
       
-      // Invalidate recovery tokens on email change
-      const { prisma } = await import('@/lib/prisma');
-      await prisma.passwordResetToken.deleteMany({
-        where: { userId: id }
-      });
     }
     return UserRepository.update(id, campos);
   },
@@ -109,8 +104,7 @@ export const AgricultorService = {
     if (id === adminId) {
       throw new Error('SELF_DEACTIVATION');
     }
-    // CU-03.4: Revocar sesión inmediatamente
-    AuthService.revokeUser(id);
+    // La desactivación y revocación se persisten juntas.
     return UserRepository.softDelete(id);
   },
 

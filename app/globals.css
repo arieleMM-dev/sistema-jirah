@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 /* ── Tailwind v4: Content Sources ── */
@@ -17,8 +16,8 @@
   --color-agri-slate: #64748B;
   --color-agri-bg-light: #FAF8F5;
 
-  --font-sans: 'Inter', 'Sora', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: var(--font-jirah), sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
 }
 
 /* ── Tailwind v4: Theme Extension ── */
@@ -75,7 +74,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-jirah), sans-serif;
   }
 }
 

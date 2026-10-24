@@ -1,0 +1,540 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-15T01:28:45.9323650Z",
+  "title": "Design System: Finca JIRAH",
+  "extensions": {
+    "colorMeta": {
+      "auth-bg": {
+        "role": "neutral",
+        "displayName": "Piedra verdosa",
+        "tonalRamp": [
+          "oklch(15.00% 0.0111 123.47)",
+          "oklch(26.43% 0.0111 123.47)",
+          "oklch(37.86% 0.0111 123.47)",
+          "oklch(49.29% 0.0111 123.47)",
+          "oklch(60.71% 0.0111 123.47)",
+          "oklch(72.14% 0.0111 123.47)",
+          "oklch(83.57% 0.0111 123.47)",
+          "oklch(95.00% 0.0111 123.47)"
+        ]
+      },
+      "auth-surface": {
+        "role": "neutral",
+        "displayName": "Campo translúcido claro",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 0.00 / 0.55)",
+          "oklch(26.43% 0.0000 0.00 / 0.55)",
+          "oklch(37.86% 0.0000 0.00 / 0.55)",
+          "oklch(49.29% 0.0000 0.00 / 0.55)",
+          "oklch(60.71% 0.0000 0.00 / 0.55)",
+          "oklch(72.14% 0.0000 0.00 / 0.55)",
+          "oklch(83.57% 0.0000 0.00 / 0.55)",
+          "oklch(95.00% 0.0000 0.00 / 0.55)"
+        ]
+      },
+      "auth-ink": {
+        "role": "neutral",
+        "displayName": "Tinta verde",
+        "tonalRamp": [
+          "oklch(15.00% 0.0520 160.94)",
+          "oklch(26.43% 0.0520 160.94)",
+          "oklch(37.86% 0.0520 160.94)",
+          "oklch(49.29% 0.0520 160.94)",
+          "oklch(60.71% 0.0520 160.94)",
+          "oklch(72.14% 0.0520 160.94)",
+          "oklch(83.57% 0.0520 160.94)",
+          "oklch(95.00% 0.0520 160.94)"
+        ]
+      },
+      "auth-muted": {
+        "role": "neutral",
+        "displayName": "Texto verde secundario",
+        "tonalRamp": [
+          "oklch(15.00% 0.0305 150.22)",
+          "oklch(26.43% 0.0305 150.22)",
+          "oklch(37.86% 0.0305 150.22)",
+          "oklch(49.29% 0.0305 150.22)",
+          "oklch(60.71% 0.0305 150.22)",
+          "oklch(72.14% 0.0305 150.22)",
+          "oklch(83.57% 0.0305 150.22)",
+          "oklch(95.00% 0.0305 150.22)"
+        ]
+      },
+      "auth-border": {
+        "role": "neutral",
+        "displayName": "Borde salvia",
+        "tonalRamp": [
+          "oklch(15.00% 0.0290 146.95)",
+          "oklch(26.43% 0.0290 146.95)",
+          "oklch(37.86% 0.0290 146.95)",
+          "oklch(49.29% 0.0290 146.95)",
+          "oklch(60.71% 0.0290 146.95)",
+          "oklch(72.14% 0.0290 146.95)",
+          "oklch(83.57% 0.0290 146.95)",
+          "oklch(95.00% 0.0290 146.95)"
+        ]
+      },
+      "auth-action": {
+        "role": "primary",
+        "displayName": "Verde de acción",
+        "tonalRamp": [
+          "oklch(15.00% 0.0631 158.85)",
+          "oklch(26.43% 0.0631 158.85)",
+          "oklch(37.86% 0.0631 158.85)",
+          "oklch(49.29% 0.0631 158.85)",
+          "oklch(60.71% 0.0631 158.85)",
+          "oklch(72.14% 0.0631 158.85)",
+          "oklch(83.57% 0.0631 158.85)",
+          "oklch(95.00% 0.0631 158.85)"
+        ]
+      },
+      "auth-action-ink": {
+        "role": "neutral",
+        "displayName": "Texto de acción claro",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 0.00)",
+          "oklch(26.43% 0.0000 0.00)",
+          "oklch(37.86% 0.0000 0.00)",
+          "oklch(49.29% 0.0000 0.00)",
+          "oklch(60.71% 0.0000 0.00)",
+          "oklch(72.14% 0.0000 0.00)",
+          "oklch(83.57% 0.0000 0.00)",
+          "oklch(95.00% 0.0000 0.00)"
+        ]
+      },
+      "auth-hover": {
+        "role": "primary",
+        "displayName": "Verde de acción intenso",
+        "tonalRamp": [
+          "oklch(15.00% 0.0520 160.94)",
+          "oklch(26.43% 0.0520 160.94)",
+          "oklch(37.86% 0.0520 160.94)",
+          "oklch(49.29% 0.0520 160.94)",
+          "oklch(60.71% 0.0520 160.94)",
+          "oklch(72.14% 0.0520 160.94)",
+          "oklch(83.57% 0.0520 160.94)",
+          "oklch(95.00% 0.0520 160.94)"
+        ]
+      },
+      "auth-error": {
+        "role": "neutral",
+        "displayName": "Error rojo",
+        "tonalRamp": [
+          "oklch(15.00% 0.1574 25.98)",
+          "oklch(26.43% 0.1574 25.98)",
+          "oklch(37.86% 0.1574 25.98)",
+          "oklch(49.29% 0.1574 25.98)",
+          "oklch(60.71% 0.1574 25.98)",
+          "oklch(72.14% 0.1574 25.98)",
+          "oklch(83.57% 0.1574 25.98)",
+          "oklch(95.00% 0.1574 25.98)"
+        ]
+      },
+      "auth-error-bg": {
+        "role": "neutral",
+        "displayName": "Fondo de error claro",
+        "tonalRamp": [
+          "oklch(15.00% 0.0165 26.65)",
+          "oklch(26.43% 0.0165 26.65)",
+          "oklch(37.86% 0.0165 26.65)",
+          "oklch(49.29% 0.0165 26.65)",
+          "oklch(60.71% 0.0165 26.65)",
+          "oklch(72.14% 0.0165 26.65)",
+          "oklch(83.57% 0.0165 26.65)",
+          "oklch(95.00% 0.0165 26.65)"
+        ]
+      },
+      "auth-success-bg": {
+        "role": "neutral",
+        "displayName": "Confirmación clara",
+        "tonalRamp": [
+          "oklch(15.00% 0.0257 128.77)",
+          "oklch(26.43% 0.0257 128.77)",
+          "oklch(37.86% 0.0257 128.77)",
+          "oklch(49.29% 0.0257 128.77)",
+          "oklch(60.71% 0.0257 128.77)",
+          "oklch(72.14% 0.0257 128.77)",
+          "oklch(83.57% 0.0257 128.77)",
+          "oklch(95.00% 0.0257 128.77)"
+        ]
+      },
+      "auth-focus": {
+        "role": "primary",
+        "displayName": "Foco verde",
+        "tonalRamp": [
+          "oklch(15.00% 0.0899 136.40)",
+          "oklch(26.43% 0.0899 136.40)",
+          "oklch(37.86% 0.0899 136.40)",
+          "oklch(49.29% 0.0899 136.40)",
+          "oklch(60.71% 0.0899 136.40)",
+          "oklch(72.14% 0.0899 136.40)",
+          "oklch(83.57% 0.0899 136.40)",
+          "oklch(95.00% 0.0899 136.40)"
+        ]
+      },
+      "auth-bg-dark": {
+        "role": "neutral",
+        "displayName": "Verde carbón",
+        "tonalRamp": [
+          "oklch(15.00% 0.0181 177.15)",
+          "oklch(26.43% 0.0181 177.15)",
+          "oklch(37.86% 0.0181 177.15)",
+          "oklch(49.29% 0.0181 177.15)",
+          "oklch(60.71% 0.0181 177.15)",
+          "oklch(72.14% 0.0181 177.15)",
+          "oklch(83.57% 0.0181 177.15)",
+          "oklch(95.00% 0.0181 177.15)"
+        ]
+      },
+      "auth-surface-dark": {
+        "role": "neutral",
+        "displayName": "Campo translúcido oscuro",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 0.00 / 0.06)",
+          "oklch(26.43% 0.0000 0.00 / 0.06)",
+          "oklch(37.86% 0.0000 0.00 / 0.06)",
+          "oklch(49.29% 0.0000 0.00 / 0.06)",
+          "oklch(60.71% 0.0000 0.00 / 0.06)",
+          "oklch(72.14% 0.0000 0.00 / 0.06)",
+          "oklch(83.57% 0.0000 0.00 / 0.06)",
+          "oklch(95.00% 0.0000 0.00 / 0.06)"
+        ]
+      },
+      "auth-ink-dark": {
+        "role": "neutral",
+        "displayName": "Tinta marfil",
+        "tonalRamp": [
+          "oklch(15.00% 0.0180 123.97)",
+          "oklch(26.43% 0.0180 123.97)",
+          "oklch(37.86% 0.0180 123.97)",
+          "oklch(49.29% 0.0180 123.97)",
+          "oklch(60.71% 0.0180 123.97)",
+          "oklch(72.14% 0.0180 123.97)",
+          "oklch(83.57% 0.0180 123.97)",
+          "oklch(95.00% 0.0180 123.97)"
+        ]
+      },
+      "auth-muted-dark": {
+        "role": "neutral",
+        "displayName": "Texto salvia secundario",
+        "tonalRamp": [
+          "oklch(15.00% 0.0253 147.23)",
+          "oklch(26.43% 0.0253 147.23)",
+          "oklch(37.86% 0.0253 147.23)",
+          "oklch(49.29% 0.0253 147.23)",
+          "oklch(60.71% 0.0253 147.23)",
+          "oklch(72.14% 0.0253 147.23)",
+          "oklch(83.57% 0.0253 147.23)",
+          "oklch(95.00% 0.0253 147.23)"
+        ]
+      },
+      "auth-border-dark": {
+        "role": "neutral",
+        "displayName": "Borde salvia nocturno",
+        "tonalRamp": [
+          "oklch(15.00% 0.0377 149.02)",
+          "oklch(26.43% 0.0377 149.02)",
+          "oklch(37.86% 0.0377 149.02)",
+          "oklch(49.29% 0.0377 149.02)",
+          "oklch(60.71% 0.0377 149.02)",
+          "oklch(72.14% 0.0377 149.02)",
+          "oklch(83.57% 0.0377 149.02)",
+          "oklch(95.00% 0.0377 149.02)"
+        ]
+      },
+      "auth-action-dark": {
+        "role": "primary",
+        "displayName": "Amarillo de acción nocturna",
+        "tonalRamp": [
+          "oklch(15.00% 0.1625 94.87)",
+          "oklch(26.43% 0.1625 94.87)",
+          "oklch(37.86% 0.1625 94.87)",
+          "oklch(49.29% 0.1625 94.87)",
+          "oklch(60.71% 0.1625 94.87)",
+          "oklch(72.14% 0.1625 94.87)",
+          "oklch(83.57% 0.1625 94.87)",
+          "oklch(95.00% 0.1625 94.87)"
+        ]
+      },
+      "auth-action-ink-dark": {
+        "role": "neutral",
+        "displayName": "Texto de acción nocturno",
+        "tonalRamp": [
+          "oklch(15.00% 0.0520 160.94)",
+          "oklch(26.43% 0.0520 160.94)",
+          "oklch(37.86% 0.0520 160.94)",
+          "oklch(49.29% 0.0520 160.94)",
+          "oklch(60.71% 0.0520 160.94)",
+          "oklch(72.14% 0.0520 160.94)",
+          "oklch(83.57% 0.0520 160.94)",
+          "oklch(95.00% 0.0520 160.94)"
+        ]
+      },
+      "auth-hover-dark": {
+        "role": "primary",
+        "displayName": "Amarillo de acción iluminado",
+        "tonalRamp": [
+          "oklch(15.00% 0.1434 96.43)",
+          "oklch(26.43% 0.1434 96.43)",
+          "oklch(37.86% 0.1434 96.43)",
+          "oklch(49.29% 0.1434 96.43)",
+          "oklch(60.71% 0.1434 96.43)",
+          "oklch(72.14% 0.1434 96.43)",
+          "oklch(83.57% 0.1434 96.43)",
+          "oklch(95.00% 0.1434 96.43)"
+        ]
+      },
+      "auth-error-dark": {
+        "role": "neutral",
+        "displayName": "Error coral claro",
+        "tonalRamp": [
+          "oklch(15.00% 0.0469 27.80)",
+          "oklch(26.43% 0.0469 27.80)",
+          "oklch(37.86% 0.0469 27.80)",
+          "oklch(49.29% 0.0469 27.80)",
+          "oklch(60.71% 0.0469 27.80)",
+          "oklch(72.14% 0.0469 27.80)",
+          "oklch(83.57% 0.0469 27.80)",
+          "oklch(95.00% 0.0469 27.80)"
+        ]
+      },
+      "auth-error-bg-dark": {
+        "role": "neutral",
+        "displayName": "Fondo de error nocturno",
+        "tonalRamp": [
+          "oklch(15.00% 0.0418 28.88)",
+          "oklch(26.43% 0.0418 28.88)",
+          "oklch(37.86% 0.0418 28.88)",
+          "oklch(49.29% 0.0418 28.88)",
+          "oklch(60.71% 0.0418 28.88)",
+          "oklch(72.14% 0.0418 28.88)",
+          "oklch(83.57% 0.0418 28.88)",
+          "oklch(95.00% 0.0418 28.88)"
+        ]
+      },
+      "auth-success-bg-dark": {
+        "role": "neutral",
+        "displayName": "Confirmación nocturna",
+        "tonalRamp": [
+          "oklch(15.00% 0.0431 148.06)",
+          "oklch(26.43% 0.0431 148.06)",
+          "oklch(37.86% 0.0431 148.06)",
+          "oklch(49.29% 0.0431 148.06)",
+          "oklch(60.71% 0.0431 148.06)",
+          "oklch(72.14% 0.0431 148.06)",
+          "oklch(83.57% 0.0431 148.06)",
+          "oklch(95.00% 0.0431 148.06)"
+        ]
+      },
+      "auth-focus-dark": {
+        "role": "primary",
+        "displayName": "Foco amarillo",
+        "tonalRamp": [
+          "oklch(15.00% 0.1625 94.87)",
+          "oklch(26.43% 0.1625 94.87)",
+          "oklch(37.86% 0.1625 94.87)",
+          "oklch(49.29% 0.1625 94.87)",
+          "oklch(60.71% 0.1625 94.87)",
+          "oklch(72.14% 0.1625 94.87)",
+          "oklch(83.57% 0.1625 94.87)",
+          "oklch(95.00% 0.1625 94.87)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Título botánico; segunda línea con peso 800."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Título de acceso y recuperación."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Marca de 18px; 17px por debajo de 800px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descripción del formulario; máximo 40ch."
+      },
+      "story": {
+        "displayName": "Story",
+        "purpose": "Descripción botánica de 15px, interlínea 1.65 y máximo 43ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Etiquetas de campos."
+      },
+      "input": {
+        "displayName": "Input",
+        "purpose": "Texto de edición en campos."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Acción principal."
+      },
+      "supporting": {
+        "displayName": "Supporting",
+        "purpose": "Nota de acceso, descripción de marca y requisitos."
+      },
+      "story-title": {
+        "displayName": "Story title",
+        "purpose": "Títulos botánicos de 22px; 20px entre 800px y 1100px."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "fruit-float",
+        "value": "fruitFloat 8s ease-in-out infinite",
+        "purpose": "Imagen fotorealista predeterminada elegida por el usuario: traslación vertical de 12px con inclinación fija -12deg, sin giro axial. Se suspende con foco en #acceso, puntero sobre la escena, pestaña oculta, escena fuera de pantalla, movimiento reducido o ancho inferior a 800px."
+      },
+      {
+        "name": "prototype-model-rotation",
+        "value": "2π / 24s; linear Y",
+        "purpose": "Trabajo pendiente, desactivado por defecto. Solo para pruebas locales con JIRAH_AUTH_3D_PROTOTYPE === true desde el servidor, ancho desde 800px y sin movimiento reducido. Giro Y con inclinación Z -.18rad, máximo 30fps y DPR 1.5; comparte las pausas contextuales. El modo photo predeterminado no monta canvas ni descarga GLB. Última revisión REBUILD: fidelidad no aprobada."
+      },
+      {
+        "name": "prototype-model-float",
+        "value": "sin(t × π / 4) × .045",
+        "purpose": "Solo prototipo local activado explícitamente: amplitud .045 unidades, período 8s. La imagen elegida sigue como respaldo hasta carga y ante errores o indisponibilidad WebGL; movimiento reducido muestra la imagen estática. Su geometría y material no son reglas del sistema."
+      },
+      {
+        "name": "story-crossfade",
+        "value": "opacity 650ms ease",
+        "purpose": "Transición cruzada de mensajes superpuestos en una celda estable; sin animar blur ni backdrop-filter."
+      },
+      {
+        "name": "story-interval",
+        "value": "10000ms",
+        "purpose": "Primer mensaje determinista; selección aleatoria de uno de los otros cinco mensajes. Sin controles ni contador, por petición expresa. Se suspende con foco en #acceso, puntero sobre la escena, pestaña oculta, escena fuera de pantalla, movimiento reducido o ancho inferior a 800px."
+      },
+      {
+        "name": "control-transition",
+        "value": "180ms ease",
+        "purpose": "Color de fondo, borde y presión de controles."
+      },
+      {
+        "name": "submit-spinner",
+        "value": "spin 800ms linear infinite",
+        "purpose": "Progreso de envío con texto; se elimina con movimiento reducido."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-scene-hidden",
+        "value": "799px"
+      },
+      {
+        "name": "scene-visible",
+        "value": "800px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "800px–1100px"
+      },
+      {
+        "name": "small-mobile",
+        "value": "480px"
+      },
+      {
+        "name": "short-desktop-height",
+        "value": "760px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Acción principal",
+      "kind": "button",
+      "description": "Envío a ancho completo con hover, foco y presión.",
+      "html": "<button type=\"button\" class=\"ds-btn-primary\">Ingresar al Sistema <svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-primary{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:54px;padding:13px 18px;border:0;border-radius:10px;background:var(--auth-action,#26523b);color:var(--auth-action-ink,#fff);font-size:14px;font-weight:750;font-family:var(--font-jirah,Manrope),sans-serif;cursor:pointer;transition:background-color 180ms ease,transform 180ms ease;}.ds-btn-primary:hover:not(:disabled){background:var(--auth-hover,#183c2b);}.ds-btn-primary:focus-visible{outline:3px solid var(--auth-focus,#466a35);outline-offset:4px;}.ds-btn-primary:active:not(:disabled){transform:translateY(1px);}.ds-btn-primary:disabled{opacity:.65;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-btn-primary{transition:none;}}",
+      "refersTo": "button-primary"
+    },
+    {
+      "name": "Acción nocturna",
+      "kind": "button",
+      "description": "Envío a ancho completo con hover, foco y presión.",
+      "html": "<button type=\"button\" class=\"ds-btn-dark\">Ingresar al Sistema <svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M5 12h14m-7-7 7 7-7 7\"/></svg></button>",
+      "css": ".ds-btn-dark{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:54px;padding:13px 18px;border:0;border-radius:10px;background:#f2ce35;color:#183c2b;font-size:14px;font-weight:750;font-family:var(--font-jirah,Manrope),sans-serif;cursor:pointer;transition:background-color 180ms ease,transform 180ms ease;}.ds-btn-dark:hover:not(:disabled){background:#f8dc62;}.ds-btn-dark:focus-visible{outline:3px solid #f2ce35;outline-offset:4px;}.ds-btn-dark:active:not(:disabled){transform:translateY(1px);}.ds-btn-dark:disabled{opacity:.65;cursor:not-allowed;}@media(prefers-reduced-motion:reduce){.ds-btn-dark{transition:none;}}",
+      "refersTo": "button-primary-dark"
+    },
+    {
+      "name": "Campo de acceso",
+      "kind": "input",
+      "description": "Campo de cristal de 52px, blanco al 55% en claro y al 6% en oscuro, con desenfoque fijo de 12px, etiqueta y foco visible.",
+      "html": "<label class=\"ds-field\">Correo electrónico<input class=\"ds-input\" type=\"email\" autocomplete=\"username\" placeholder=\"nombre@correo.com\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:9px;color:var(--auth-ink,#183c2b);font-size:14px;font-weight:650;font-family:var(--font-jirah,Manrope),sans-serif;}.ds-input{width:100%;min-height:52px;border:1px solid var(--auth-border,#7a8a7b);border-radius:10px;padding:12px 15px;background:var(--auth-surface,rgb(255 255 255 / 55%));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--auth-ink,#183c2b);font-size:16px;font-family:var(--font-jirah,Manrope),sans-serif;transition:border-color 180ms ease,box-shadow 180ms ease;}.ds-input:hover{border-color:var(--auth-ink,#183c2b);}.ds-input::placeholder{color:var(--auth-muted,#506153);opacity:1;}.ds-input:focus-visible{outline:3px solid var(--auth-focus,#466a35);outline-offset:4px;}.ds-input[aria-invalid=\"true\"]{border-color:var(--auth-error,#9d2424);}@media(prefers-reduced-motion:reduce){.ds-input{transition:none;}}",
+      "refersTo": "input"
+    },
+    {
+      "name": "Control de tema",
+      "kind": "button",
+      "description": "Acción circular con borde y área de 44px.",
+      "html": "<button class=\"ds-theme\" type=\"button\" aria-label=\"Usar tema oscuro\"><svg aria-hidden=\"true\" width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472 7 7 0 0 0 9.473 9.472Z\"/></svg></button>",
+      "css": ".ds-theme{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--auth-border,#7a8a7b);border-radius:50%;background:transparent;color:var(--auth-ink,#183c2b);cursor:pointer;transition:background-color 180ms ease;}.ds-theme:hover{background:var(--auth-surface,rgb(255 255 255 / 55%));}.ds-theme:focus-visible{outline:3px solid var(--auth-focus,#466a35);outline-offset:4px;}@media(prefers-reduced-motion:reduce){.ds-theme{transition:none;}}",
+      "refersTo": "theme-button"
+    },
+    {
+      "name": "Enlace de recuperación",
+      "kind": "nav",
+      "description": "Enlace existente de 13px; documentado como excepción heredada, sin promoverlo a escala.",
+      "html": "<a class=\"ds-recovery\" href=\"/recuperar\">¿Olvidaste tu contraseña?</a>",
+      "css": ".ds-recovery{display:flex;align-items:center;min-height:44px;padding:8px 0;font-size:13px;font-weight:650;color:var(--auth-ink,#183c2b);text-underline-offset:4px;font-family:var(--font-jirah,Manrope),sans-serif;}.ds-recovery:hover{text-decoration:underline;}.ds-recovery:focus-visible{outline:3px solid var(--auth-focus,#466a35);outline-offset:4px;}"
+    },
+    {
+      "name": "Error de acceso",
+      "kind": "custom",
+      "description": "Estado funcional explícito junto al formulario abierto.",
+      "html": "<div class=\"ds-error\" role=\"alert\" tabindex=\"-1\">Correo o contraseña incorrectos</div>",
+      "css": ".ds-error{background:var(--auth-error-bg,#fff0ee);color:var(--auth-error,#9d2424);border:1px solid currentColor;border-radius:10px;padding:14px 16px;margin:0 0 24px;font-size:14px;line-height:1.6;font-family:var(--font-jirah,Manrope),sans-serif;}",
+      "refersTo": "error"
+    }
+  ],
+  "narrative": {
+    "northStar": "Cada cosecha cuenta",
+    "overview": "Una entrada botánica y operativa en un espacio continuo: la imagen fotorealista de pitahaya amarilla comparte el fondo con la interfaz, suspendida sin caja propia ni suelo. La decisión final explícita del usuario conserva esta imagen y guarda el 3D como trabajo pendiente. El formulario es el destino inmediato. Formulario y mensajes se apoyan directamente sobre el fondo, sin tarjetas exteriores. El cristal semitransparente se concentra en los campos, con desenfoque fijo y bordes suaves, según la corrección explícita del usuario.\r\n\r\nEste sistema describe exclusivamente `/login`, `/recuperar` y `/recuperar/reset`, a partir de `app/ui/auth/` y del contrato corregido en `docs/design/acceso.md`. El panel operativo conserva su composición y sus tokens agrícolas; solo comparte Manrope local. El nombre Finca JIRAH y el logotipo original `public/Logo.jpeg` son compromisos de marca. No cambian autenticación, rutas, permisos ni reglas de negocio.\r\n\r\nLa exploración del 14 de octubre de 2026 produjo un modelo amarillo con giro real a partir de fotografías propias y adaptación artística, sin sustituir el mundo visual existente. Su última revisión solicita reconstruirlo (REBUILD); no está aprobado como fotorealista. La entrega elegida conserva la imagen flotante y los mensajes aleatorios, sin lienzo 3D ni descarga del GLB en el modo predeterminado. La secuencia de escritorio conserva marca, fruto flotante y dato botánico a la izquierda, con acceso inmediatamente usable a la derecha. El prototipo permanece disponible únicamente mediante activación explícita para pruebas locales; no es una entrega 3D terminada.",
+    "keyCharacteristics": [
+      "Imagen fotorealista de pitahaya amarilla con alpha nativo, suspendida sobre fondo continuo.",
+      "Formulario y mensajes abiertos sobre el fondo; cristal solo en los campos.",
+      "Manrope local y logotipo original íntegro.",
+      "Temas claro y oscuro con la misma jerarquía; formulario prioritario en móvil.",
+      "Flotación y mensajes con suspensión contextual; 3D guardado y desactivado por defecto como trabajo pendiente."
+    ],
+    "rules": [
+      {
+        "name": "The Roles Rule",
+        "body": "Aplicar los roles de autenticación dentro de sus superficies; no sustituir automáticamente los tokens agrícolas del panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Continuous Space Rule",
+        "body": "Mantener fruta, formulario y relato sobre el fondo continuo; reservar el cristal para los campos, sin tarjetas exteriores.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** conservar nombre, proporciones e integridad del logotipo original.",
+      "**Do** mantener fruta, formulario y relato sobre el fondo continuo, con cristal solo en los campos, también en móvil.",
+      "**Do** usar los roles claros u oscuros correspondientes en las superficies de autenticación.",
+      "**Do** mantener foco visible, áreas amplias y mensajes textuales junto al formulario.",
+      "**Do** respetar movimiento reducido y suspender fruta y mensajes durante la interacción con el acceso o la escena.",
+      "**Do** conservar mensajes decorativos sin anuncios automáticos ni controles, según la petición explícita del usuario.",
+      "**Do** conservar la imagen fotorealista como escena predeterminada, con flotación y mensajes aleatorios sujetos a las pausas contextuales.",
+      "**Do** mantener el 3D guardado y desactivado por defecto; habilitarlo solo para pruebas locales explícitas, con la imagen como respaldo.",
+      "**Do** registrar la procedencia rosada y la adaptación artística amarilla del prototipo, y mantener explícita su aprobación visual pendiente."
+    ],
+    "donts": [
+      "**Don't** extender este documento como prueba de un rediseño del panel operativo.",
+      "**Don't** presentar la imagen fotorealista como modelo 3D, ni el prototipo como escaneo exacto de fruto amarillo o fotografía de una cosecha real.",
+      "**Don't** añadir un suelo o una caja detrás de la fruta.",
+      "**Don't** convertir los defectos de geometría o material del prototipo rechazado visualmente en reglas del sistema, ni confundir integración funcional con fidelidad aprobada.",
+      "**Don't** activar o publicar el prototipo como escena predeterminada o entrega 3D terminada sin una nueva decisión explícita del usuario.",
+      "**Don't** ocultar errores, progreso o acciones de acceso detrás de la escena.",
+      "**Don't** convertir datos de prueba o estadísticas inventadas en decoración de marca.",
+      "**Don't** convertir medidas heredadas señaladas por el detector en recomendaciones generales."
+    ]
+  }
+}

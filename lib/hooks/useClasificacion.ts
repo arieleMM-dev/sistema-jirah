@@ -1,149 +1,112 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { CATEGORIAS, calcularClasificacion, fechaFinca, mensajeCosecha } from '@/lib/cosecha';
+import { jornadasLocales } from '@/lib/local-jornadas';
+import type { JornadaVista } from '@/lib/types/cosecha';
 import { offlineService } from '@/lib/services/offline.service';
+import { networkSyncSubject } from '@/lib/observers/SyncObserver';
 
-export type PesajePendiente = {
-  id: string; fechaRegistro: string; pesoBrutoKg: number; numGavetas: number; pesoNetoKg: number;
-  campana: { codigo: string; nombre: string; taraBase: number };
-  lote:    { codigo: string; nombre: string };
-  agricultor: { nombres: string; apellidos: string };
-};
+type CategoryForm = Record<typeof CATEGORIAS[number], { gavetas: string; bruto: string }>;
+const emptyForm = (): CategoryForm => Object.fromEntries(CATEGORIAS.map(c => [c, { gavetas: '0', bruto: '0' }])) as CategoryForm;
 
 export function useClasificacion() {
-  const [pendientes, setPendientes] = useState<PesajePendiente[]>([]);
-  const [selected, setSelected] = useState<PesajePendiente | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session } = useSession();
+  const actor = session?.user;
+  const [jornadas, setJornadas] = useState<JornadaVista[]>([]);
+  const [registrosAnteriores, setRegistrosAnteriores] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [observaciones, setObservaciones] = useState('');
+  const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pagina, setPagina] = useState(1), [paginas, setPaginas] = useState(1), [soloPreparadas, setSoloPreparadas] = useState(false);
+  const loadVersion = useRef(0);
+  const invalidateLoad = useCallback(() => { loadVersion.current++; }, []);
   const [saving, setSaving] = useState(false);
-
-  const [form, setForm] = useState({
-    gvExp: '', pbExp: '', gvNac: '', pbNac: '', desce: '', obs: ''
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  const [verificado, setVerificado] = useState(false);
-  const [calculo, setCalculo] = useState<{
-    netoExp: number; netoNac: number; total: number; margen: number; ok: boolean;
-  } | null>(null);
-  
-  const [descuadreAlerta, setDescuadreAlerta] = useState<number | null>(null);
-  const [forzar, setForzar] = useState(false);
+  const selected = jornadas.find(j => j.id === selectedId) ?? null;
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/campo/clasificaciones');
-      if (!res.ok) throw new Error('Error al cargar clasificaciones');
-      const data = await res.json();
-      setPendientes(data.pendientes ?? []);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+    if (!actor?.id) return;
+    const version = ++loadVersion.current;
+    let context = await offlineService.getContext(actor.id) ?? { userId: actor.id };
+    let networkError: string | null = null;
+    let preparedOnly = true;
+    if (navigator.onLine) {
+      try {
+        const response = await fetch('/api/campo/jornadas?pagina=' + pagina);
+        if (!response.ok) throw new Error('No se pudieron cargar las jornadas.');
+        const data: { jornadas: JornadaVista[]; registrosAnteriores: number; paginas: number } = await response.json();
+        if (version !== loadVersion.current) return;
+        if (pagina === 1) await offlineService.saveContext(actor.id, data);
+        setPaginas(data.paginas); preparedOnly = false;
+        context = { ...context, ...data };
+      } catch (e: unknown) { networkError = e instanceof Error ? e.message : 'Error de conexión.'; }
     }
-  }, []);
+    const [pending, classifications] = await Promise.all([offlineService.getPendingPesajes(actor.id), offlineService.getPendingClasificaciones(actor.id)]);
+    if (version !== loadVersion.current) return;
+    if (preparedOnly) { setPagina(1); setPaginas(1); }
+    setSoloPreparadas(preparedOnly);
+    setJornadas(jornadasLocales(context, pending, classifications, actor));
+    setRegistrosAnteriores(context.registrosAnteriores ?? 0);
+    setError(networkError ?? (!context.jornadas && !context.campanas ? 'Conéctese una vez para disponer de las jornadas y catálogos en este dispositivo.' : null));
+    setLoading(false);
+  }, [actor, pagina]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    const refresh = () => { void loadData().catch(() => { setError('No se pudo leer el almacenamiento local.'); setLoading(false); }); };
+    refresh();
+    window.addEventListener('online', refresh);
+    const observer = { onSyncEvent: (event: string) => { if (event === 'sync-complete' || event === 'sync-failed') refresh(); } };
+    networkSyncSubject.subscribe(observer);
+    return () => { invalidateLoad(); window.removeEventListener('online', refresh); networkSyncSubject.unsubscribe(observer); };
+  }, [loadData, invalidateLoad]);
 
-  const resetForm = () => {
-    setForm({ gvExp: '', pbExp: '', gvNac: '', pbNac: '', desce: '', obs: '' });
-    setErrors({});
-    setVerificado(false);
-    setCalculo(null);
-    setDescuadreAlerta(null);
-    setForzar(false);
-  };
-
-  const seleccionar = (p: PesajePendiente) => {
-    setSelected(p);
-    resetForm();
-  };
-
-  const calcular = () => {
-    const e: Record<string, string> = {};
-    const gve = parseInt(form.gvExp); const pbe = parseFloat(form.pbExp);
-    const gvn = parseInt(form.gvNac); const pbn = parseFloat(form.pbNac);
-    const desc = parseFloat(form.desce || '0');
-
-    if (!form.gvExp || isNaN(gve) || gve < 0) e.gvExp = 'Gavetas inválidas';
-    if (!form.pbExp || isNaN(pbe) || pbe < 0) e.pbExp = 'Peso bruto inválido';
-    if (!form.gvNac || isNaN(gvn) || gvn < 0) e.gvNac = 'Gavetas inválidas';
-    if (!form.pbNac || isNaN(pbn) || pbn < 0) e.pbNac = 'Peso bruto inválido';
-    if (isNaN(desc) || desc < 0) e.desce = 'Descarte inválido';
-    
-    setErrors(e);
-    if (Object.keys(e).length > 0) return;
-
-    if (!selected) return;
-
-    const tara = selected.campana.taraBase;
-    const netoExp = +(pbe - gve * tara).toFixed(3);
-    const netoNac = +(pbn - gvn * tara).toFixed(3);
-    const total = +(netoExp + netoNac + desc).toFixed(3);
-    const base = selected.pesoNetoKg;
-    const margen = base > 0 ? +((Math.abs(total - base) / base) * 100).toFixed(2) : 0;
-    const ok = margen <= 4.0;
-
-    setCalculo({ netoExp, netoNac, total, margen, ok });
-    setVerificado(true);
-    setDescuadreAlerta(ok ? null : margen);
-    setForzar(false);
-  };
-
-  const handleGuardar = async (clasificadorId: string | undefined) => {
-    if (!selected || !calculo) return { success: false, msg: 'Faltan datos por calcular', type: 'error' };
-    setSaving(true);
+  const preview = useMemo(() => {
+    if (!selected || selected.clasificacion) return null;
     try {
-      if (!navigator.onLine) {
-        await offlineService.saveClasificacion({
-          pesaje_local_id: selected.id,
-          exportacion_kg: calculo.netoExp,
-          nacional_kg: calculo.netoNac,
-          descarte_kg: parseFloat(form.desce || '0'),
-          clasificador_id: clasificadorId || '',
-          observaciones: form.obs || undefined,
-        });
-        resetForm();
-        setSelected(null);
-        return { success: true, msg: 'Modo Offline: Clasificación guardada localmente.', type: 'info' };
-      }
+      if (CATEGORIAS.some(c => !form[c].gavetas.trim() || !form[c].bruto.trim())) return { error: 'Complete las cantidades y pesos; use cero para categorías vacías.' };
+      return { value: calcularClasificacion(selected.pesoNetoKg, selected.taraBase,
+        CATEGORIAS.map(categoria => ({ categoria, numGavetas: Number(form[categoria].gavetas), pesoBrutoKg: Number(form[categoria].bruto) }))) };
+    } catch (e) { return { error: mensajeCosecha(e) }; }
+  }, [selected, form]);
 
-      const res = await fetch('/api/campo/clasificaciones', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pesajeId: selected.id,
-          exportacionKg: calculo.netoExp,
-          nacionalKg: calculo.netoNac,
-          descarteKg: parseFloat(form.desce || '0'),
-          forzarDescuadre: forzar,
-          observaciones: form.obs || undefined,
-        }),
-      });
+  function seleccionar(jornada: JornadaVista) {
+    setSelectedId(jornada.id); setForm(emptyForm()); setObservaciones(''); setMotivo(''); setError(null);
+  }
 
-      const data = await res.json();
-      if (!res.ok) {
-        setErrors({ general: data.error });
-        return { success: false, msg: data.error || 'Error al guardar', type: 'error' };
-      }
-
-      resetForm();
-      setSelected(null);
+  async function guardar() {
+    if (!actor || !selected || !preview?.value || selected.pendienteLocal) return;
+    if (selected.fecha !== fechaFinca()) { setError('Solo puede capturar la clasificación en el día de cosecha.'); return; }
+    const payload = { localId: offlineService.generateLocalId(), versionFormato: 2 as const, jornadaId: selected.id,
+      version: selected.version, pesajeIds: selected.pesajes.map(p => p.id).sort(), detalles: preview.value.detalles,
+      timestamp: new Date().toISOString(), clasificador_id: actor.id, observaciones: observaciones || undefined };
+    setSaving(true); setError(null);
+    try {
+      await offlineService.saveClasificacion(payload);
+      setSelectedId(null); setForm(emptyForm()); setObservaciones('');
       await loadData();
-      return { success: true, msg: 'Clasificación registrada exitosamente.', type: 'success' };
-    } catch (err: any) {
-      setErrors({ general: err.message || 'Error de red' });
-      return { success: false, msg: err.message || 'Error de red', type: 'error' };
-    } finally {
-      setSaving(false);
-    }
-  };
+      window.dispatchEvent(new Event('jirah-queue-changed'));
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'No se pudo guardar.'); }
+    finally { setSaving(false); }
+  }
 
-  return {
-    pendientes, selected, loading, error, form, setForm,
-    errors, verificado, setVerificado, calculo, descuadreAlerta, forzar, setForzar, saving,
-    seleccionar, resetForm, calcular, handleGuardar
-  };
+  async function aprobar() {
+    if (!selected || actor?.rol !== 'ADMIN') return;
+    if (!navigator.onLine) { setError('La aprobación del administrador requiere conexión.'); return; }
+    setSaving(true); setError(null);
+    try {
+      const response = await fetch('/api/campo/jornadas/aprobaciones', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jornadaId: selected.id, version: selected.version, motivo }) });
+      const data = await response.json();
+      if (!response.ok) { setError(data.error); return; }
+      setMotivo(''); await loadData();
+    } catch { setError('No se pudo aprobar. Compruebe la conexión.'); }
+    finally { setSaving(false); }
+  }
+
+  return { jornadas, registrosAnteriores, selected, seleccionar, form, setForm, observaciones, setObservaciones,
+    pagina, paginas, soloPreparadas, cambiarPagina: (p: number) => { setSelectedId(null); setLoading(true); setPagina(p); },
+    motivo, setMotivo, preview, error, loading, saving, guardar, aprobar, isAdmin: actor?.rol === 'ADMIN',
+    actualizar: () => loadData().catch(() => setError('No se pudo actualizar la lista.')) };
 }

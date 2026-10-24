@@ -44,12 +44,12 @@ export function usePersonal() {
         
         const data = await res.json();
         setAgricultores(data.agricultores ?? []);
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
+      } catch (err: unknown) {
+        if (controller.signal.aborted) {
           // Es esperado si el usuario tipeó rápido, ignorar silenciosamente
           return;
         }
-        setError(err.message || 'Error de conexión');
+        setError(err instanceof Error ? err.message : 'Error de conexión');
       } finally {
         setLoading(false);
       }

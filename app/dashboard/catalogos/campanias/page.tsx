@@ -2,11 +2,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
-type Comprador = { id: string; nombre: string; tipo: string };
+type Comprador = { id: string; nombre: string; tipo: string; isActive: boolean };
 type Campana = {
-  id: string; codigo: string; nombre: string; funda: string;
+  id: string; codigo: string; nombre: string; funda: string; cultivo: string;
   taraBase: number; isActive: boolean; createdAt: string;
   comprador: Comprador | null;
+  minimoPGr: number; minimoGGr: number; fechaNacimiento: string | null;
 };
 
 type ModalState = 'crear' | 'editar' | 'cerrar' | null;
@@ -40,7 +41,7 @@ export default function CampaniasPage() {
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
 
   const [form, setForm] = useState({
-    codigo: '', nombre: '', funda: 'Amarilla', taraBase: '1.70', compradorId: '',
+    codigo: '', nombre: '', funda: 'Amarilla', cultivo: 'Pitahaya', taraBase: '1.70', compradorId: '', minimoPGr: '180', minimoGGr: '280', fechaNacimiento: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -50,29 +51,26 @@ export default function CampaniasPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [c, comp] = await Promise.all([
+  const load = useCallback(() => Promise.all([
         fetch('/api/catalogos/campanias').then(r => r.json()),
         fetch('/api/catalogos/compradores').then(r => r.json()),
-      ]);
+      ]).then(([c, comp]) => {
       setCampanas(c.campanas ?? []);
-      setCompradores((comp.compradores ?? []).filter((c: any) => c.isActive));
-    } finally { setLoading(false); }
-  }, []);
+      setCompradores((comp.compradores ?? []).filter((c: Comprador) => c.isActive));
+    }).catch(() => { setErrors({ general: 'No se pudieron cargar las campañas y compradores.' });
+    }).finally(() => { setLoading(false); }), []);
 
   useEffect(() => { load(); }, [load]);
 
   function openCrear() {
-    setForm({ codigo: '', nombre: '', funda: 'Amarilla', taraBase: '1.70', compradorId: '' });
+    setForm({ codigo: '', nombre: '', funda: 'Amarilla', cultivo: 'Pitahaya', taraBase: '1.70', compradorId: '', minimoPGr: '180', minimoGGr: '280', fechaNacimiento: '' });
     setErrors({});
     setSelected(null);
     setModal('crear');
   }
 
   function openEditar(c: Campana) {
-    setForm({ codigo: c.codigo, nombre: c.nombre, funda: c.funda, taraBase: String(c.taraBase), compradorId: c.comprador?.id ?? '' });
+    setForm({ codigo: c.codigo, nombre: c.nombre, funda: c.funda, cultivo: c.cultivo, taraBase: String(c.taraBase), compradorId: c.comprador?.id ?? '', minimoPGr: String(c.minimoPGr), minimoGGr: String(c.minimoGGr), fechaNacimiento: c.fechaNacimiento ?? '' });
     setErrors({});
     setSelected(c);
     setModal('editar');
@@ -82,9 +80,12 @@ export default function CampaniasPage() {
     const e: Record<string, string> = {};
     if (!form.codigo.trim())  e.codigo  = 'El código es obligatorio';
     if (!form.nombre.trim())  e.nombre  = 'El nombre es obligatorio';
-    if (!form.funda)          e.funda   = 'Selecciona un color de funda';
+    if (!form.funda.trim()) e.funda = 'Ingrese un color de funda';
+    if (!form.cultivo.trim()) e.cultivo = 'El cultivo es obligatorio';
     const tara = parseFloat(form.taraBase);
     if (isNaN(tara) || tara <= 0 || tara > 10) e.taraBase = 'Tara inválida (0–10 kg)';
+    if (!form.minimoPGr || !form.minimoGGr || !Number.isFinite(Number(form.minimoPGr)) || !Number.isFinite(Number(form.minimoGGr)) ||
+      Number(form.minimoPGr) <= 0 || Number(form.minimoGGr) <= Number(form.minimoPGr)) e.parametros = 'El mínimo G debe ser mayor al mínimo P, ambos positivos.';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -96,9 +97,10 @@ export default function CampaniasPage() {
       const body = {
         codigo: form.codigo.trim().toUpperCase(),
         nombre: form.nombre.trim(),
-        funda:  form.funda,
+        funda: form.funda.trim(), cultivo: form.cultivo.trim(),
         taraBase: parseFloat(form.taraBase),
-        compradorId: form.compradorId || undefined,
+        compradorId: form.compradorId || null,
+        minimoPGr: Number(form.minimoPGr), minimoGGr: Number(form.minimoGGr), fechaNacimiento: form.fechaNacimiento || null,
       };
       const url  = modal === 'editar' ? `/api/catalogos/campanias/${selected!.id}` : '/api/catalogos/campanias';
       const method = modal === 'editar' ? 'PATCH' : 'POST';
@@ -108,7 +110,8 @@ export default function CampaniasPage() {
       setModal(null);
       showToast(modal === 'editar' ? 'Campaña actualizada' : 'Campaña registrada');
       load();
-    } finally { setSaving(false); }
+    } catch { setErrors({ general: 'No se pudo confirmar la operación. Revise la conexión y vuelva a consultar el catálogo.' }); }
+    finally { setSaving(false); }
   }
 
   async function handleCerrar() {
@@ -121,7 +124,8 @@ export default function CampaniasPage() {
       setModal(null);
       showToast('Campaña cerrada exitosamente');
       load();
-    } finally { setSaving(false); }
+    } catch { showToast('No se pudo confirmar el cierre. Revise la conexión.', 'error'); }
+    finally { setSaving(false); }
   }
 
   const filtered = campanas.filter(c =>
@@ -231,7 +235,7 @@ export default function CampaniasPage() {
       {/* Modal Crear/Editar */}
       {(modal === 'crear' || modal === 'editar') && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setModal(null)}>
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-agri-green-dark dark:text-white mb-6">{modal === 'crear' ? 'Nueva Campaña' : 'Editar Campaña'}</h3>
 
             {errors.general && <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium border border-red-200 dark:border-red-800">{errors.general}</div>}
@@ -254,15 +258,16 @@ export default function CampaniasPage() {
                 {errors.nombre && <p className="text-xs text-red-500 font-medium mt-1">{errors.nombre}</p>}
               </div>
 
+              <label className="block text-sm font-medium">Cultivo *
+                <input aria-label="Cultivo" list="cultivos-registrados" maxLength={200} className="mt-2 min-h-11 w-full rounded-lg border px-4 bg-white dark:bg-gray-700" value={form.cultivo} onChange={e => setForm(f => ({ ...f, cultivo: e.target.value }))} />
+                <datalist id="cultivos-registrados">{[...new Set(['Pitahaya', ...campanas.map(c => c.cultivo)])].map(c => <option key={c} value={c} />)}</datalist>
+                {errors.cultivo && <span className="text-red-500">{errors.cultivo}</span>}
+              </label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Color de Funda *</label>
-                  <select className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main transition-colors" value={form.funda}
-                    onChange={e => setForm(f => ({ ...f, funda: e.target.value }))}>
-                    {FUNDA_COLORS.map(fc => (
-                      <option key={fc.value} value={fc.value}>{fc.value}</option>
-                    ))}
-                  </select>
+                  <input aria-label="Color de funda" list="fundas-registradas" maxLength={200} className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm" value={form.funda} onChange={e => setForm(f => ({ ...f, funda: e.target.value }))} />
+                  <datalist id="fundas-registradas">{[...new Set([...FUNDA_COLORS.map(c => c.value), ...campanas.map(c => c.funda)])].map(c => <option key={c} value={c} />)}</datalist>
                   {errors.funda && <p className="text-xs text-red-500 font-medium mt-1">{errors.funda}</p>}
                 </div>
                 <div>
@@ -274,6 +279,16 @@ export default function CampaniasPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Nacimiento de la fruta (opcional)</label>
+                <input aria-label="Nacimiento de la fruta" type="date" className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm" value={form.fechaNacimiento} onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="text-sm text-agri-green-dark dark:text-gray-300">Mínimo P (g)<input aria-label="Mínimo P en gramos" type="number" min="0.001" step="0.001" className="mt-2 min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4" value={form.minimoPGr} onChange={e => setForm(f => ({ ...f, minimoPGr: e.target.value }))} /></label>
+                <label className="text-sm text-agri-green-dark dark:text-gray-300">Mínimo G (g)<input aria-label="Mínimo G en gramos" type="number" min="0.001" step="0.001" className="mt-2 min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4" value={form.minimoGGr} onChange={e => setForm(f => ({ ...f, minimoGGr: e.target.value }))} /></label>
+              </div>
+              <p className="text-xs text-agri-slate">Los límites se aplican a jornadas nuevas. Las jornadas existentes conservan sus parámetros.</p>
+              {errors.parametros && <p role="alert" className="text-sm text-red-600">{errors.parametros}</p>}
               <div>
                 <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Comprador Asignado</label>
                 <select className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main transition-colors" value={form.compradorId}
@@ -302,7 +317,7 @@ export default function CampaniasPage() {
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-agri-green-dark dark:text-white mb-3">¿Cerrar campaña {selected.codigo}?</h3>
             <p className="text-sm text-agri-slate dark:text-gray-400 leading-relaxed mb-6">
-              Una vez cerrada, ya no se podrán registrar más pesajes con este código. El historial de cosechas se mantendrá intacto.
+              El cierre impide nuevas capturas. Los teléfonos podrán enviar pesajes capturados antes de este momento; si la jornada ya fue clasificada, requerirán conciliación administrativa con historial. El servidor no puede conocer los pendientes de un teléfono desconectado.
             </p>
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
               <button className="min-h-[44px] px-6 rounded-lg text-sm font-semibold border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-agri-green-dark dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all" onClick={() => setModal(null)}>Cancelar</button>

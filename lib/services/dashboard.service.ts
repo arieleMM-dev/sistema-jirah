@@ -1,4 +1,5 @@
 import { DashboardRepo } from '@/lib/repositories/DashboardRepository';
+import { rangoFechasFinca } from '@/lib/filtros-cosecha';
 
 export class DashboardService {
   static async getDashboardStats(filtros: {
@@ -9,18 +10,7 @@ export class DashboardService {
   }) {
     const { fechaDesde, fechaHasta, loteId, campanaId } = filtros;
     
-    // Preparar fechas
-    const parseDate = (d?: string | null, isEnd?: boolean) => {
-      if (!d) return undefined;
-      return isEnd ? new Date(d + 'T23:59:59') : new Date(d);
-    };
-
-    const parsedFiltros = {
-      fechaDesde: parseDate(fechaDesde, false),
-      fechaHasta: parseDate(fechaHasta, true),
-      loteId: loteId || undefined,
-      campanaId: campanaId || undefined,
-    };
+    const parsedFiltros = rangoFechasFinca({ fechaDesde, fechaHasta, loteId, campanaId });
 
     const [stats, campanas, lotes] = await Promise.all([
       DashboardRepo.getStats(parsedFiltros),

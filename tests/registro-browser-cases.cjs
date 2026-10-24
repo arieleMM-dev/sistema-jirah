@@ -1,0 +1,42 @@
+module.exports=async({base,prisma,browser,admin,assert})=>{
+  const {expect}=require('@playwright/test'),fs=require('node:fs'),path=require('node:path'),{randomUUID,randomBytes,createHash}=require('node:crypto'),bcrypt=require('bcryptjs');
+  const output=path.join(__dirname,'../prisma/backups/browser-qa/registro-20261022');fs.mkdirSync(output,{recursive:true});
+  const worker=await prisma.user.create({data:{email:randomBytes(32).toString('hex')+'@example.test',cedula:randomUUID(),nombres:'Solicitud',apellidos:'Navegador',rol:'SIN_ASIGNAR',estadoAcceso:'PENDIENTE',passwordHash:await bcrypt.hash('Frase de registro segura 2026',4)}});
+  const context=await browser.newContext({viewport:{width:1440,height:1000}}),adminContext=await browser.newContext({viewport:{width:1440,height:1000}});
+  const page=await context.newPage(),adminPage=await adminContext.newPage();
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));adminPage.on('pageerror',e=>errors.push(e.message));
+  const login=async(p,email,password)=>{await p.goto(base+'/login');await p.getByLabel('Correo electrónico').fill(email);await p.getByLabel('Contraseña',{exact:true}).fill(password);await p.getByRole('button',{name:'Ingresar al Sistema'}).click();};
+  const capture=async(p,name)=>{await p.evaluate(()=>document.fonts.ready);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);await p.screenshot({path:path.join(output,name+'.png'),fullPage:true,animations:'disabled'});};
+  try {
+    await page.goto(base+'/registro');await expect(page.getByRole('heading',{name:'Tu lugar en la finca'})).toBeVisible();await capture(page,'registro-desktop');
+    await page.setViewportSize({width:390,height:844});await capture(page,'registro-mobile');
+    await page.route('**/api/auth/registro',r=>r.fulfill({status:201,json:{message:'Solicitud creada para la prueba de interfaz.'}}));
+    await page.getByLabel('Nombres',{exact:true}).fill(worker.nombres);await page.getByLabel('Apellidos',{exact:true}).fill(worker.apellidos);await page.getByLabel('Cédula ecuatoriana').fill('1710034065');
+    await page.getByLabel('Correo electrónico').fill(worker.email);await page.getByLabel('Contraseña',{exact:true}).fill('Frase de registro segura 2026');await page.getByLabel('Confirmar contraseña',{exact:true}).fill('Frase de registro segura 2026');
+    await page.getByRole('button',{name:'Crear mi cuenta'}).click();await expect(page).toHaveURL(base+'/bienvenida');
+    await expect(page.getByRole('heading',{name:'Primero, confirma tu correo'})).toBeVisible();await capture(page,'bienvenida-mobile');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('jirah-sesion-campo')),null);
+    const token=randomBytes(32).toString('hex');await prisma.verificacionCorreo.create({data:{userId:worker.id,token:createHash('sha256').update(token).digest('hex'),expiresAt:new Date(Date.now()+60000)}});
+    await page.goto(base+'/verificar#token='+token);await expect(page.getByRole('button',{name:'Confirmar mi correo',exact:true})).toBeVisible();await capture(page,'verificar-mobile');
+    await page.getByRole('button',{name:'Confirmar mi correo',exact:true}).click();await expect(page.getByRole('heading',{name:'Correo confirmado'})).toBeVisible();assert.equal(new URL(page.url()).hash,'');
+    await page.getByRole('link',{name:'Ver mi solicitud'}).click();await expect(page.getByRole('heading',{name:'El administrador revisará tu acceso'})).toBeVisible();await capture(page,'pendiente-mobile');
+    await page.setViewportSize({width:1440,height:1000});await capture(page,'pendiente-desktop');
+    await login(adminPage,admin.email,'PruebaAdmin9');await expect(adminPage).toHaveURL(base+'/dashboard');await adminPage.goto(base+'/dashboard/personal/solicitudes');
+    const row=adminPage.locator('li').filter({has:adminPage.getByRole('heading',{name:'Solicitud Navegador',exact:true})});
+    await expect(row).toBeVisible();await capture(adminPage,'solicitudes-desktop');await adminPage.setViewportSize({width:390,height:844});await capture(adminPage,'solicitudes-mobile');
+    let release;
+    const held=new Promise(resolve=>{release=resolve;});
+    await adminPage.route('**/api/agricultores/solicitudes?estado=RECHAZADO&pagina=1',async route=>{await held;await route.continue();});
+    await adminPage.getByRole('combobox',{name:/Estado/}).selectOption('RECHAZADO');
+    await expect(adminPage.getByText('Consultando solicitudes…',{exact:true})).toBeVisible();
+    await expect(adminPage.getByRole('combobox',{name:/Estado/})).toBeDisabled();
+    await expect(row).toHaveCount(0);await capture(adminPage,'solicitudes-cargando-mobile');
+    release();await expect(adminPage.getByRole('combobox',{name:/Estado/})).toBeEnabled();
+    await adminPage.getByRole('combobox',{name:/Estado/}).selectOption('PENDIENTE');await expect(row).toBeVisible();
+    await row.getByRole('button',{name:'Aprobar acceso de campo',exact:true}).click();await row.getByRole('button',{name:'Confirmar decisión'}).click();await expect(adminPage.getByRole('status').filter({hasText:'Acceso de campo aprobado'})).toBeVisible();
+    await page.getByRole('button',{name:'Actualizar estado'}).click();await expect(page.getByRole('link',{name:'Iniciar sesión',exact:true})).toBeVisible();
+    await login(page,worker.email,'Frase de registro segura 2026');await expect(page.getByRole('heading',{name:'Registrar Cosecha'})).toBeVisible();
+    assert.equal((await prisma.user.findUnique({where:{id:worker.id}})).rol,'AGRICULTOR_CLASIFICADOR');
+    assert.deepEqual(errors,[]);
+  }finally{await context.close();await adminContext.close();}
+};

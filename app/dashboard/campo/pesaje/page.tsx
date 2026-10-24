@@ -6,7 +6,7 @@ import { usePesaje } from '@/lib/hooks/usePesaje';
 
 export default function PesajePage() {
   const { data: session } = useSession();
-  const userId = (session?.user as any)?.id;
+  const userId = session?.user?.id;
   const {
     campanas, lotes, historial, loading, error, form, setForm,
     calc, errors, saving, handleGuardar
@@ -67,7 +67,7 @@ export default function PesajePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Campaña Activa <span className="text-red-500">*</span></label>
-                <select 
+                <select aria-label="Campaña"
                   className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main"
                   value={form.campanaId}
                   onChange={e => setForm(f => ({ ...f, campanaId: e.target.value }))}
@@ -85,7 +85,7 @@ export default function PesajePage() {
 
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Lote Asignado <span className="text-red-500">*</span></label>
-                <select 
+                <select aria-label="Lote"
                   className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main"
                   value={form.loteId}
                   onChange={e => setForm(f => ({ ...f, loteId: e.target.value }))}
@@ -103,7 +103,7 @@ export default function PesajePage() {
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Nº de Gavetas <span className="text-red-500">*</span></label>
                 <input 
-                  type="number" min="1" step="1" placeholder="Ej: 8"
+                  aria-label="Número de gavetas" type="number" min="1" step="1" placeholder="Ej: 8"
                   className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm transition-colors placeholder:text-agri-slate/50 focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main"
                   value={form.numGavetas}
                   onChange={e => setForm(f => ({ ...f, numGavetas: e.target.value }))}
@@ -114,7 +114,7 @@ export default function PesajePage() {
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Peso Bruto Total (kg) <span className="text-red-500">*</span></label>
                 <input 
-                  type="number" min="0.1" step="0.1" placeholder="Ej: 154.5"
+                  aria-label="Peso bruto total" type="number" min="0.001" step="0.001" placeholder="Ej: 154.5"
                   className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm transition-colors placeholder:text-agri-slate/50 focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main font-mono"
                   value={form.pesoBrutoKg}
                   onChange={e => setForm(f => ({ ...f, pesoBrutoKg: e.target.value }))}
@@ -204,7 +204,7 @@ export default function PesajePage() {
                 </tr>
               </thead>
               <tbody>
-                {historial.map((p: any) => (
+                {historial.map(p => (
                   <tr key={p.id} className="border-b border-gray-100 dark:border-gray-800 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/80 even:bg-gray-50/50 dark:even:bg-gray-800/30">
                     <td className="px-4 py-3 font-mono text-agri-slate">{new Date(p.fechaRegistro).toLocaleDateString('es-EC', { hour: '2-digit', minute:'2-digit' })}</td>
                     <td className="px-4 py-3 font-mono text-agri-slate font-semibold">{p.campana.codigo}</td>
@@ -214,11 +214,11 @@ export default function PesajePage() {
                     <td className="px-4 py-3 font-mono font-bold text-agri-green-main dark:text-emerald-500">{p.pesoNetoKg.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                        p.clasificacion 
+                        p.clasificacion || (p.jornada && p.jornada.estado !== 'ABIERTA')
                           ? 'bg-agri-green-main/10 text-agri-green-dark border-agri-green-main/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' 
                           : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'
                       }`}>
-                        {p.clasificacion ? 'Clasificado' : 'Pendiente'}
+                        {p.jornada?.estado === 'PENDIENTE_APROBACION' ? 'En revisión' : p.clasificacion || (p.jornada && p.jornada.estado !== 'ABIERTA') ? 'Clasificado' : 'Pendiente'}
                       </span>
                     </td>
                   </tr>

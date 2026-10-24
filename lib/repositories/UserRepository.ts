@@ -10,7 +10,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import type { User, Rol, Tema } from '@prisma/client';
+import type { User, Rol, Tema, Prisma } from '@prisma/client';
 
 // ─── Tipos de entrada ───────────────────────────────────────────
 export interface CreateUserInput {
@@ -24,6 +24,7 @@ export interface CreateUserInput {
 }
 
 export interface UpdateUserInput {
+  avatar?: string | null;
   nombres?: string;
   apellidos?: string;
   email?: string;
@@ -38,6 +39,29 @@ export interface UpdateUserInput {
 export type PublicUser = Omit<User, 'passwordHash'>;
 
 export const UserRepository = {
+  findByIdWithPassword(id: string) {
+    return prisma.user.findUnique({ where: { id } });
+  },
+  async changePassword(id: string, expectedHash: string, expectedVersion: number, passwordHash: string) {
+    return prisma.$transaction(async tx => {
+      const changed = await tx.user.updateMany({
+        where: { id, passwordHash: expectedHash, sessionVersion: expectedVersion, isActive: true },
+        data: { passwordHash, sessionVersion: { increment: 1 } },
+      });
+      if (changed.count !== 1) return false;
+      await tx.passwordResetToken.updateMany({ where: { userId: id, usedAt: null }, data: { usedAt: new Date() } });
+      return true;
+    });
+  },
+  async findSessionUser(id: string) {
+    return prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true, email: true, nombres: true, apellidos: true,
+        rol: true, isActive: true, sessionVersion: true, estadoAcceso: true, emailVerificadoAt: true,
+      },
+    });
+  },
   /**
    * Busca un usuario por su ID.
    * Usado en: AuthController (verificar sesión), AgricultorController (obtener ficha)
@@ -75,7 +99,7 @@ export const UserRepository = {
   async search(query: string, limit = 50): Promise<PublicUser[]> {
     const q = query.trim();
     return prisma.user.findMany({
-      where: q
+      where: { estadoAcceso: 'APROBADO', ...(q
         ? {
             OR: [
               { nombres:   { contains: q } },
@@ -84,7 +108,7 @@ export const UserRepository = {
               { email:     { contains: q } },
             ],
           }
-        : {},
+        : {}) },
       omit: { passwordHash: true },
       orderBy: { apellidos: 'asc' },
       take: limit,
@@ -107,11 +131,27 @@ export const UserRepository = {
    * Usado en: AgricultorController (CU-03.3), PerfilController (CU-02)
    */
   async update(id: string, input: UpdateUserInput): Promise<PublicUser> {
-    return prisma.user.update({
+    const update = {
       where: { id },
-      data: input,
+      data: {
+        ...input,
+        ...(input.passwordHash !== undefined && { sessionVersion: { increment: 1 } }),
+      },
       omit: { passwordHash: true },
-    });
+    } satisfies Prisma.UserUpdateArgs;
+    if (input.passwordHash !== undefined || input.email !== undefined) {
+      return prisma.$transaction(async tx => {
+        const user = await tx.user.update(update);
+        await tx.passwordResetToken.updateMany({ where: { userId: id, usedAt: null }, data: { usedAt: new Date() } });
+        if (input.email !== undefined) {
+          await tx.user.update({ where: { id }, data: { emailVerificadoAt: null } });
+          await tx.verificacionCorreo.updateMany({ where: { userId: id, usedAt: null }, data: { usedAt: new Date() } });
+          user.emailVerificadoAt = null;
+        }
+        return user;
+      });
+    }
+    return prisma.user.update(update);
   },
 
   /**
@@ -122,7 +162,7 @@ export const UserRepository = {
   async softDelete(id: string): Promise<PublicUser> {
     return prisma.user.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, sessionVersion: { increment: 1 } },
       omit: { passwordHash: true },
     });
   },

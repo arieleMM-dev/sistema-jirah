@@ -19,7 +19,7 @@ export default function CompradoresPage() {
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
   const [form, setForm] = useState({
     nombre: '', ruc: '', tipo: 'EXPORTADOR' as 'EXPORTADOR' | 'MAYORISTA',
-    contacto: '', toleranciaPct: '4',
+    contacto: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -29,25 +29,24 @@ export default function CompradoresPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch('/api/catalogos/compradores').then(r => r.json());
-      setCompradores(r.compradores ?? []);
-    } finally { setLoading(false); }
-  }, []);
+  const load = useCallback(() => fetch('/api/catalogos/compradores').then(async response => {
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? 'No se pudo cargar el catálogo.');
+    setCompradores(data.compradores ?? []);
+  }).catch((e: unknown) => setToast({ msg: e instanceof Error ? e.message : 'Error de conexión', type: 'error' }))
+    .finally(() => setLoading(false)), []);
 
   useEffect(() => { load(); }, [load]);
 
   function openCrear() {
-    setForm({ nombre: '', ruc: '', tipo: 'EXPORTADOR', contacto: '', toleranciaPct: '4' });
+    setForm({ nombre: '', ruc: '', tipo: 'EXPORTADOR', contacto: '' });
     setErrors({});
     setSelected(null);
     setModal('crear');
   }
 
   function openEditar(c: Comprador) {
-    setForm({ nombre: c.nombre, ruc: c.ruc ?? '', tipo: c.tipo, contacto: c.contacto ?? '', toleranciaPct: String(c.toleranciaPct) });
+    setForm({ nombre: c.nombre, ruc: c.ruc ?? '', tipo: c.tipo, contacto: c.contacto ?? '' });
     setErrors({});
     setSelected(c);
     setModal('editar');
@@ -66,8 +65,6 @@ export default function CompradoresPage() {
       e.ruc = 'El documento de identidad no es válido';
     }
 
-    const tol = parseFloat(form.toleranciaPct);
-    if (isNaN(tol) || tol < 0 || tol > 100) e.toleranciaPct = 'La tolerancia debe estar entre 0% y 100%';
     
     const contactoVal = form.contacto.trim();
     if (contactoVal && !/^09\d{8}$/.test(contactoVal)) {
@@ -87,7 +84,6 @@ export default function CompradoresPage() {
         ruc: form.ruc.trim() || undefined,
         tipo: form.tipo,
         contacto: form.contacto.trim() || undefined,
-        toleranciaPct: parseFloat(form.toleranciaPct),
       };
       const url    = modal === 'editar' ? `/api/catalogos/compradores/${selected!.id}` : '/api/catalogos/compradores';
       const method = modal === 'editar' ? 'PATCH' : 'POST';
@@ -185,7 +181,6 @@ export default function CompradoresPage() {
                   <th className="px-6 py-3 text-xs font-semibold text-white uppercase tracking-wider">RUC</th>
                   <th className="px-6 py-3 text-xs font-semibold text-white uppercase tracking-wider">Tipo</th>
                   <th className="px-6 py-3 text-xs font-semibold text-white uppercase tracking-wider">Contacto</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-white uppercase tracking-wider">Tolerancia</th>
                   <th className="px-6 py-3 text-xs font-semibold text-white uppercase tracking-wider">Estado</th>
                   <th className="px-6 py-3 text-xs font-semibold text-white uppercase tracking-wider"></th>
                 </tr>
@@ -201,7 +196,6 @@ export default function CompradoresPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 font-mono text-agri-slate text-sm">{c.contacto ?? '—'}</td>
-                    <td className="px-6 py-4 font-mono text-agri-slate text-sm">±{c.toleranciaPct}%</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.isActive ? 'bg-agri-green-main/10 text-agri-green-dark dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
                         {c.isActive ? 'Activo' : 'Inactivo'}
@@ -266,11 +260,8 @@ export default function CompradoresPage() {
                   {errors.contacto && <p className="text-xs text-red-500 font-medium mt-1">{errors.contacto}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Tolerancia de Merma (%)</label>
-                  <input className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main transition-colors font-mono" type="number" step="0.5" min="0" max="100"
-                    value={form.toleranciaPct} onChange={e => setForm(f => ({ ...f, toleranciaPct: e.target.value }))} />
-                  <p className="text-xs text-agri-slate mt-1">Estándar ±4%</p>
-                  {errors.toleranciaPct && <p className="text-xs text-red-500 font-medium mt-1">{errors.toleranciaPct}</p>}
+                  <p className="text-sm font-medium text-agri-green-dark dark:text-gray-300">Cuadre de cosecha: ±4 %</p>
+                  <p className="text-xs text-agri-slate dark:text-gray-400 mt-2">Se calcula por jornada y lote, sobre exportación + nacional. Es una regla de la finca; no cambia según el comprador.</p>
                 </div>
               </div>
             </div>

@@ -35,23 +35,46 @@ export const CampanaRepo = {
     codigo: string;
     nombre: string;
     funda: string;
+    cultivo?: string;
     taraBase?: number;
-    compradorId?: string;
+    compradorId?: string | null;
+    minimoPGr?: number;
+    minimoGGr?: number;
+    fechaNacimiento?: string | null;
   }) {
-    return prisma.campana.create({ data, include: { comprador: { select: { id: true, nombre: true, tipo: true } } } });
+    return prisma.campana.create({ data: { ...data, parametros: { create: {
+      version: 1, taraBase: data.taraBase ?? 1.7, minimoPGr: data.minimoPGr ?? 180, minimoGGr: data.minimoGGr ?? 280,
+    } } }, include: { comprador: { select: { id: true, nombre: true, tipo: true } } } });
   },
 
   async update(id: string, data: {
     nombre?: string;
     funda?: string;
+    cultivo?: string;
     taraBase?: number;
     compradorId?: string | null;
+    minimoPGr?: number;
+    minimoGGr?: number;
+    fechaNacimiento?: string | null;
   }) {
-    return prisma.campana.update({ where: { id }, data, include: { comprador: { select: { id: true, nombre: true, tipo: true } } } });
+    return prisma.$transaction(async tx => {
+      const actual = await tx.campana.findUniqueOrThrow({ where: { id } });
+      const parametros = { taraBase: data.taraBase ?? actual.taraBase, minimoPGr: data.minimoPGr ?? actual.minimoPGr, minimoGGr: data.minimoGGr ?? actual.minimoGGr };
+      const cambio = parametros.taraBase !== actual.taraBase || parametros.minimoPGr !== actual.minimoPGr || parametros.minimoGGr !== actual.minimoGGr;
+      // Conserva también la versión inicial de campañas creadas por semillas anteriores.
+      await tx.parametrosCampana.upsert({ where: { campanaId_version: { campanaId: id, version: actual.versionParametros } }, update: {},
+        create: { campanaId: id, version: actual.versionParametros, taraBase: actual.taraBase, minimoPGr: actual.minimoPGr, minimoGGr: actual.minimoGGr } });
+      if (cambio) await tx.parametrosCampana.create({ data: { campanaId: id, version: actual.versionParametros + 1, ...parametros } });
+      return tx.campana.update({ where: { id }, data: { ...data, versionParametros: actual.versionParametros + (cambio ? 1 : 0) }, include: { comprador: { select: { id: true, nombre: true, tipo: true } } } });
+    });
+  },
+
+  findParametros(campanaId: string, version: number) {
+    return prisma.parametrosCampana.findUnique({ where: { campanaId_version: { campanaId, version } } });
   },
 
   async cerrar(id: string) {
-    return prisma.campana.update({ where: { id }, data: { isActive: false } });
+    return prisma.campana.update({ where: { id }, data: { isActive: false, cerradaAt: new Date() } });
   },
 
   async countPesajes(campanaId: string) {
@@ -82,6 +105,7 @@ export const LoteRepo = {
     nombre: string;
     hectareas?: number;
     descripcion?: string;
+    variedad?: string;
   }) {
     return prisma.lote.create({ data });
   },
@@ -90,12 +114,13 @@ export const LoteRepo = {
     nombre?: string;
     hectareas?: number;
     descripcion?: string;
+    variedad?: string | null;
   }) {
     return prisma.lote.update({ where: { id }, data });
   },
 
   async softDelete(id: string) {
-    return prisma.lote.update({ where: { id }, data: { isActive: false } });
+    return prisma.lote.update({ where: { id }, data: { isActive: false, inactivadoAt: new Date() } });
   },
 
   async countPesajes(loteId: string) {

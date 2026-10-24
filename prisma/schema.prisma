@@ -1,5 +1,5 @@
 // Prisma Schema - Sistema de Gestión Agrícola Jirah
-// Base de datos: SQLite para desarrollo (migrar a PostgreSQL en producción)
+// SQLite requiere almacenamiento persistente y una instancia compartida; consultar README antes de desplegar.
 
 generator client {
   provider = "prisma-client-js"
@@ -22,7 +22,10 @@ model User {
   telefono       String?
   avatar         String?
   rol            Rol      @default(AGRICULTOR)
+  estadoAcceso   EstadoAcceso @default(APROBADO)
+  emailVerificadoAt DateTime?
   isActive       Boolean  @default(true)
+  sessionVersion Int      @default(0)
   tema           Tema     @default(OSCURO)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -30,8 +33,17 @@ model User {
 
   // Relaciones
   resetTokens    PasswordResetToken[]
+  verificaciones VerificacionCorreo[]
+  decisionesAcceso DecisionAcceso[] @relation("SolicitudAcceso")
+  decisionesRealizadas DecisionAcceso[] @relation("AdministradorAcceso")
   pesajesBrutos  PesajeBruto[]
   clasificaciones Clasificacion[]
+  clasificacionesJornada ClasificacionJornada[] @relation("AutorClasificacionJornada")
+  aprobacionesJornada ClasificacionJornada[] @relation("AprobadorJornada")
+  entregas Entrega[]
+  devoluciones Devolucion[]
+  revisionesJornada RevisionJornada[]
+  anulacionesComerciales AnulacionComercial[]
 
   @@map("users")
 }
@@ -48,6 +60,41 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+model VerificacionCorreo {
+  id String @id @default(cuid())
+  token String @unique
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  usedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+  @@map("verificaciones_correo")
+}
+
+model DecisionAcceso {
+  id String @id @default(cuid())
+  solicitanteId String
+  solicitante User @relation("SolicitudAcceso", fields: [solicitanteId], references: [id])
+  administradorId String
+  administrador User @relation("AdministradorAcceso", fields: [administradorId], references: [id])
+  estadoAnterior EstadoAcceso
+  estadoNuevo EstadoAcceso
+  rolAsignado Rol
+  motivo String
+  createdAt DateTime @default(now())
+  @@index([solicitanteId])
+  @@map("decisiones_acceso")
+}
+
+model LimiteAcceso {
+  clave String @id
+  intentos Int
+  vence DateTime
+  @@index([vence])
+  @@map("limites_acceso")
+}
+
 // ─────────────────────────────────────────────
 // MÓDULO 4: Catálogos de la Finca
 // ─────────────────────────────────────────────
@@ -56,8 +103,15 @@ model Campana {
   codigo       String   @unique
   nombre       String
   funda        String   // Código/color de funda
+  cultivo      String   @default("Pitahaya")
   taraBase     Float    @default(1.70) // kg (peso gaveta)
+  fechaNacimiento String?
+  minimoPGr    Float    @default(180)
+  minimoGGr    Float    @default(280)
+  versionParametros Int @default(1)
+  parametros ParametrosCampana[]
   isActive     Boolean  @default(true)
+  cerradaAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -66,9 +120,25 @@ model Campana {
   comprador    Comprador? @relation("CampanaComprador", fields: [compradorId], references: [id])
 
   pesajesBrutos PesajeBruto[]
+  jornadas     JornadaCosecha[]
 
   @@map("campanas")
 }
+
+model ParametrosCampana {
+  campanaId String
+  campana Campana @relation(fields: [campanaId], references: [id])
+  version Int
+  taraBase Float
+  minimoPGr Float
+  minimoGGr Float
+  createdAt DateTime @default(now())
+
+  @@id([campanaId, version])
+  @@map("parametros_campana")
+}
+
+
 
 model Lote {
   id          String   @id @default(cuid())
@@ -78,10 +148,12 @@ model Lote {
   variedad    String?  // Ej: "Pitahaya Amarilla" — CU-04.2.1
   descripcion String?
   isActive    Boolean  @default(true)
+  inactivadoAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   pesajesBrutos PesajeBruto[]
+  jornadas    JornadaCosecha[]
 
   @@map("lotes")
 }
@@ -99,6 +171,7 @@ model Comprador {
 
   ajustes         AjusteComprador[]
   campanas        Campana[]     @relation("CampanaComprador")
+  entregas        Entrega[]
 
   @@map("compradores")
 }
@@ -114,8 +187,11 @@ model PesajeBruto {
   taraTotal      Float       // numGavetas * taraBase
   pesoNetoKg     Float       // pesoBrutoKg - taraTotal
   observaciones  String?
+  huellaCaptura  String?
   syncStatus     SyncStatus  @default(PENDING)
   syncedAt       DateTime?
+  jornadaId      String?
+  jornada        JornadaCosecha? @relation(fields: [jornadaId], references: [id])
 
   // Relaciones
   agricultorId   String
@@ -127,7 +203,165 @@ model PesajeBruto {
 
   clasificacion  Clasificacion?
 
+  @@index([jornadaId])
+  @@index([fechaRegistro(sort: Desc), id])
+  @@index([campanaId, loteId, fechaRegistro(sort: Desc), id])
   @@map("pesajes_brutos")
+}
+
+model JornadaCosecha {
+  id            String @id
+  fecha         String
+  campanaId     String
+  campana       Campana @relation(fields: [campanaId], references: [id])
+  loteId        String
+  lote          Lote @relation(fields: [loteId], references: [id])
+  taraBase      Float
+  minimoPGr     Float
+  minimoGGr     Float
+  version       Int @default(0)
+  estado        EstadoJornada @default(ABIERTA)
+  pesajes       PesajeBruto[]
+  clasificacion ClasificacionJornada?
+  revisiones RevisionJornada[]
+
+  @@unique([campanaId, loteId, fecha])
+  @@index([fecha(sort: Desc), id])
+  @@map("jornadas_cosecha")
+}
+
+model ClasificacionJornada {
+  id                String @id @default(cuid())
+  jornadaId         String @unique
+  jornada           JornadaCosecha @relation(fields: [jornadaId], references: [id])
+  clasificadorId    String
+  clasificador      User @relation("AutorClasificacionJornada", fields: [clasificadorId], references: [id])
+  fechaRegistro     DateTime @default(now())
+  pesoCosechadoKg   Float
+  pesoExportacionKg Float
+  pesoNacionalKg    Float
+  totalClasificado  Float
+  diferenciaKg      Float
+  margenErrorPct    Float
+  dentroDelMargen   Boolean
+  observaciones     String?
+  huella            String
+  detalles          DetalleClasificacionJornada[]
+  aprobadorId       String?
+  aprobador         User? @relation("AprobadorJornada", fields: [aprobadorId], references: [id])
+  motivoAprobacion  String?
+  fechaAprobacion   DateTime?
+  versionComercial Int @default(0)
+  revisionLocal String?
+  entregas DetalleEntrega[]
+
+  @@map("clasificaciones_jornada")
+}
+
+model DetalleClasificacionJornada {
+  id              String @id @default(cuid())
+  clasificacionId String
+  clasificacion   ClasificacionJornada @relation(fields: [clasificacionId], references: [id])
+  categoria       CategoriaFruta
+  numGavetas      Int
+  pesoBrutoKg     Float
+  pesoNetoKg      Float
+
+  @@unique([clasificacionId, categoria])
+  @@map("detalles_clasificacion_jornada")
+}
+
+model Entrega {
+  id String @id
+  fecha String
+  compradorId String
+  comprador Comprador @relation(fields: [compradorId], references: [id])
+  tipoComprador TipoComprador
+  nombreComprador String
+  taraKg Float
+  responsableId String
+  responsable User @relation(fields: [responsableId], references: [id])
+  createdAt DateTime @default(now())
+  observaciones String?
+  huella String
+  version Int @default(0)
+  detalles DetalleEntrega[]
+  devoluciones Devolucion[]
+  anulacion AnulacionComercial?
+  @@index([fecha])
+  @@index([fecha(sort: Desc), id])
+  @@map("entregas")
+}
+
+model DetalleEntrega {
+  id String @id
+  entregaId String
+  entrega Entrega @relation(fields: [entregaId], references: [id])
+  clasificacionId String?
+  clasificacion ClasificacionJornada? @relation(fields: [clasificacionId], references: [id])
+  devolucionId String?
+  devolucion Devolucion? @relation("ReventaDevolucion", fields: [devolucionId], references: [id])
+  categoria CategoriaFruta
+  numGavetas Int
+  pesoBrutoKg Float
+  pesoNetoKg Float
+  rechazos Devolucion[] @relation("OrigenRechazo")
+  @@index([clasificacionId, categoria])
+  @@index([devolucionId])
+  @@map("detalles_entrega")
+}
+
+model Devolucion {
+  id String @id
+  entregaId String
+  entrega Entrega @relation(fields: [entregaId], references: [id])
+  detalleOrigenId String?
+  detalleOrigen DetalleEntrega? @relation("OrigenRechazo", fields: [detalleOrigenId], references: [id])
+  fecha String
+  numGavetas Int
+  pesoBrutoKg Float
+  taraKg Float
+  pesoNetoKg Float
+  motivo String
+  responsableId String
+  responsable User @relation(fields: [responsableId], references: [id])
+  createdAt DateTime @default(now())
+  huella String
+  version Int @default(0)
+  reventas DetalleEntrega[] @relation("ReventaDevolucion")
+  anulacion AnulacionComercial?
+  @@index([entregaId])
+  @@map("devoluciones")
+}
+
+model AnulacionComercial {
+  id String @id
+  entregaId String? @unique
+  entrega Entrega? @relation(fields: [entregaId], references: [id])
+  devolucionId String? @unique
+  devolucion Devolucion? @relation(fields: [devolucionId], references: [id])
+  responsableId String
+  responsable User @relation(fields: [responsableId], references: [id])
+  motivo String
+  antes String
+  huella String
+  createdAt DateTime @default(now())
+  @@map("anulaciones_comerciales")
+}
+
+model RevisionJornada {
+  id String @id
+  jornadaId String
+  jornada JornadaCosecha @relation(fields: [jornadaId], references: [id])
+  responsableId String
+  responsable User @relation(fields: [responsableId], references: [id])
+  motivo String
+  antes String
+  despues String
+  huella String
+  createdAt DateTime @default(now())
+  @@index([jornadaId])
+  @@map("revisiones_jornada")
 }
 
 model Clasificacion {
@@ -186,10 +420,32 @@ model AjusteComprador {
 // ENUMS
 // ─────────────────────────────────────────────
 enum Rol {
+  SIN_ASIGNAR
   ADMIN
   AGRICULTOR
   CLASIFICADOR
   AGRICULTOR_CLASIFICADOR
+}
+
+enum EstadoAcceso {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+enum EstadoJornada {
+  ABIERTA
+  CLASIFICADA
+  PENDIENTE_APROBACION
+  APROBADA
+}
+
+enum CategoriaFruta {
+  G
+  P
+  N1
+  N2
+  N3
 }
 
 enum Tema {

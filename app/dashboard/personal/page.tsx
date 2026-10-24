@@ -18,8 +18,9 @@ export default function PersonalPage() {
   const rolLabel = (rol: string) => {
     switch(rol) {
       case 'ADMIN': return 'Administrador';
-      case 'AGRICULTOR': return 'Agricultor';
-      case 'CLASIFICADOR': return 'Clasificador';
+      case 'AGRICULTOR':
+      case 'CLASIFICADOR':
+      case 'AGRICULTOR_CLASIFICADOR': return 'Personal de campo';
       default: return rol;
     }
   };
@@ -30,7 +31,8 @@ export default function PersonalPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Gestión de Personal</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Directorio de usuarios y roles del sistema — CU-03.1</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Equipo autorizado para trabajar en la finca.</p>
+          <Link className="inline-flex min-h-11 items-center underline underline-offset-4" href="/dashboard/personal/solicitudes">Revisar solicitudes de acceso</Link>
         </div>
         <Link 
           href="/dashboard/personal/nuevo" 

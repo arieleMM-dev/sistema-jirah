@@ -5,6 +5,11 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  { rules: { "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }] } },
+  {
+    files: ["tests/**/*.cjs", "scripts/**/*.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -12,6 +17,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "prisma/backups/**",
+    // Archivos generados por Workbox: se revisan sus fuentes/configuración.
+    "public/sw.js",
+    "public/workbox-*.js",
+    "public/worker-*.js",
+    "public/swe-worker-*.js",
   ]),
 ]);
 

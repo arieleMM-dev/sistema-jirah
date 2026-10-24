@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 type Lote = {
   id: string; codigo: string; nombre: string;
-  hectareas: number | null; descripcion: string | null;
+  hectareas: number | null; descripcion: string | null; variedad: string | null;
   isActive: boolean; createdAt: string;
 };
 
@@ -17,7 +17,7 @@ export default function LotesPage() {
   const [modal, setModal] = useState<ModalState>(null);
   const [selected, setSelected] = useState<Lote | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
-  const [form, setForm] = useState({ codigo: '', nombre: '', hectareas: '', descripcion: '' });
+  const [form, setForm] = useState({ codigo: '', nombre: '', hectareas: '', descripcion: '', variedad: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -26,25 +26,24 @@ export default function LotesPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch('/api/catalogos/lotes').then(r => r.json());
-      setLotes(r.lotes ?? []);
-    } finally { setLoading(false); }
-  }, []);
+  const load = useCallback(() => fetch('/api/catalogos/lotes').then(async response => {
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error ?? 'No se pudo cargar el catálogo.');
+    setLotes(data.lotes ?? []);
+  }).catch((e: unknown) => setToast({ msg: e instanceof Error ? e.message : 'Error de conexión', type: 'error' }))
+    .finally(() => setLoading(false)), []);
 
   useEffect(() => { load(); }, [load]);
 
   function openCrear() {
-    setForm({ codigo: '', nombre: '', hectareas: '', descripcion: '' });
+    setForm({ codigo: '', nombre: '', hectareas: '', descripcion: '', variedad: '' });
     setErrors({});
     setSelected(null);
     setModal('crear');
   }
 
   function openEditar(l: Lote) {
-    setForm({ codigo: l.codigo, nombre: l.nombre, hectareas: l.hectareas ? String(l.hectareas) : '', descripcion: l.descripcion ?? '' });
+    setForm({ codigo: l.codigo, nombre: l.nombre, hectareas: l.hectareas ? String(l.hectareas) : '', descripcion: l.descripcion ?? '', variedad: l.variedad ?? '' });
     setErrors({});
     setSelected(l);
     setModal('editar');
@@ -70,6 +69,7 @@ export default function LotesPage() {
         nombre: form.nombre.trim(),
         hectareas: form.hectareas ? parseFloat(form.hectareas) : undefined,
         descripcion: form.descripcion.trim() || undefined,
+        variedad: form.variedad.trim(),
       };
       const url    = modal === 'editar' ? `/api/catalogos/lotes/${selected!.id}` : '/api/catalogos/lotes';
       const method = modal === 'editar' ? 'PATCH' : 'POST';
@@ -79,7 +79,8 @@ export default function LotesPage() {
       setModal(null);
       showToast(modal === 'editar' ? 'Lote actualizado' : 'Lote registrado');
       load();
-    } finally { setSaving(false); }
+    } catch { setErrors({ general: 'No se pudo confirmar la operación. Revise la conexión y vuelva a consultar el catálogo.' }); }
+    finally { setSaving(false); }
   }
 
   async function handleEliminar() {
@@ -92,7 +93,8 @@ export default function LotesPage() {
       setModal(null);
       showToast('Lote inactivado');
       load();
-    } finally { setSaving(false); }
+    } catch { showToast('No se pudo confirmar la inactivación. Revise la conexión.', 'error'); }
+    finally { setSaving(false); }
   }
 
   const filtered = lotes.filter(l => l.nombre.toLowerCase().includes(searchQuery.toLowerCase()) || l.codigo.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -230,6 +232,10 @@ export default function LotesPage() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium">Variedad
+                  <input aria-label="Variedad del lote" list="variedades-registradas" maxLength={200} className="mt-2 mb-4 min-h-11 w-full rounded-lg border px-4 bg-white dark:bg-gray-700" value={form.variedad} onChange={e => setForm(f => ({ ...f, variedad: e.target.value }))} />
+                </label>
+                <datalist id="variedades-registradas">{[...new Set(lotes.map(l => l.variedad).filter((v): v is string => Boolean(v)))].map(v => <option key={v} value={v} />)}</datalist>
                 <label className="block text-sm font-medium text-agri-green-dark dark:text-gray-300 mb-2">Descripción</label>
                 <input className="min-h-[44px] w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-agri-green-main focus:border-agri-green-main transition-colors"
                   placeholder="Observaciones del área..." value={form.descripcion}

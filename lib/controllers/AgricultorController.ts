@@ -33,14 +33,15 @@ export const AgricultorController = {
    * CU-03.1 — Crear nueva ficha contractual.
    */
   async crear(req: NextRequest): Promise<NextResponse> {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 });
     const { nombres, apellidos, cedula, email, rol, telefono } = body;
 
-    const nom = nombres?.trim() || '';
-    const ape = apellidos?.trim() || '';
-    const ced = cedula?.trim() || '';
-    const mail = email?.trim() || '';
-    const tel = telefono?.trim() || '';
+    const nom = typeof nombres === 'string' ? nombres.trim() : '';
+    const ape = typeof apellidos === 'string' ? apellidos.trim() : '';
+    const ced = typeof cedula === 'string' ? cedula.trim() : '';
+    const mail = typeof email === 'string' ? email.trim() : '';
+    const tel = typeof telefono === 'string' ? telefono.trim() : '';
 
     if (!nom || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nom) || nom.length < 2 || nom.length > 50) {
       return NextResponse.json({ error: 'Nombres inválidos' }, { status: 400 });
@@ -73,14 +74,14 @@ export const AgricultorController = {
         rol,
       });
 
-      return NextResponse.json({ user, _dev_password }, { status: 201 });
-    } catch (error: any) {
+      return NextResponse.json({ user, ...(process.env.NODE_ENV !== 'production' && { _dev_password }) }, { status: 201 });
+    } catch (error: unknown) {
       const errorMap: Record<string, { status: number; error: string }> = {
         CEDULA_INVALIDA: { status: 422, error: 'La cédula ecuatoriana ingresada no es válida' },
         EMAIL_EN_USO:   { status: 409, error: 'El correo electrónico ya está registrado en el sistema' },
         CEDULA_EN_USO:  { status: 409, error: 'La cédula ya está registrada en el sistema' },
       };
-      const mapped = errorMap[error.message];
+      const mapped = errorMap[error instanceof Error ? error.message : ''];
       if (mapped) return NextResponse.json({ error: mapped.error }, { status: mapped.status });
       return NextResponse.json({ error: 'Error interno al crear el registro' }, { status: 500 });
     }
@@ -103,12 +104,14 @@ export const AgricultorController = {
    * CU-03.3 — Editar ficha contractual.
    */
   async editar(id: string, req: NextRequest): Promise<NextResponse> {
-    const { nombres, apellidos, email, telefono } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 });
+    const { nombres, apellidos, email, telefono } = body;
 
-    const nom = nombres?.trim() || '';
-    const ape = apellidos?.trim() || '';
-    const mail = email?.trim() || '';
-    const tel = telefono?.trim() || '';
+    const nom = typeof nombres === 'string' ? nombres.trim() : '';
+    const ape = typeof apellidos === 'string' ? apellidos.trim() : '';
+    const mail = typeof email === 'string' ? email.trim() : '';
+    const tel = typeof telefono === 'string' ? telefono.trim() : '';
 
     if (!nom || !/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nom) || nom.length < 2 || nom.length > 50) {
       return NextResponse.json({ error: 'Nombres inválidos' }, { status: 400 });
@@ -131,8 +134,8 @@ export const AgricultorController = {
         telefono: tel || null,
       });
       return NextResponse.json({ message: 'Expediente actualizado', agricultor });
-    } catch (error: any) {
-      if (error.message === 'EMAIL_EN_USO') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'EMAIL_EN_USO') {
         return NextResponse.json(
           { error: 'El correo especificado ya pertenece a otra cuenta activa' },
           { status: 409 }
@@ -150,8 +153,8 @@ export const AgricultorController = {
     try {
       await AgricultorService.desactivar(id, adminId);
       return NextResponse.json({ message: 'Cuenta desactivada exitosamente' });
-    } catch (error: any) {
-      if (error.message === 'SELF_DEACTIVATION') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'SELF_DEACTIVATION') {
         return NextResponse.json(
           { error: 'Operación denegada. No puede desactivar su propia cuenta activa' },
           { status: 403 }
@@ -169,7 +172,7 @@ export const AgricultorController = {
     try {
       await AgricultorService.reactivar(id);
       return NextResponse.json({ message: 'Cuenta reactivada exitosamente' });
-    } catch (error: any) {
+    } catch {
       return NextResponse.json({ error: 'Error al reactivar la cuenta' }, { status: 500 });
     }
   },

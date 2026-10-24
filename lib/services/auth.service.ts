@@ -11,6 +11,13 @@
 
 import bcrypt from 'bcryptjs';
 import { UserRepository } from '@/lib/repositories';
+import { PasswordResetRepository } from '@/lib/repositories/PasswordResetRepository';
+import { createHash, randomBytes } from 'node:crypto';
+import { CorreoService } from '@/lib/services/correo.service';
+import { LimiteAccesoRepo } from '@/lib/repositories/LimiteAccesoRepository';
+import { validatePassword, MAX_PASSWORD_BYTES } from '@/lib/password-policy';
+
+const dummyPasswordHash = '$2b$12$5V0IbvGcx0fRmpIFF4qg7uE6Fbow1LluBDAl7VZOLF344J/iJgfPC';
 
 // ─── Patrón Observer — interfaz del suscriptor de autenticación ─
 export interface AuthObserver {
@@ -38,16 +45,14 @@ export const AuthService = {
    * @throws 'ACCOUNT_INACTIVE' si la cuenta existe pero está desactivada.
    */
   async login(email: string, password: string) {
+    if (typeof email !== 'string' || email.length > 254 || typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) return null;
+    email = email.trim().toLowerCase();
+    if (!await LimiteAccesoRepo.consumir('login', email, 10, 15 * 60_000)) throw new Error('ACCESO_LIMITE');
     // Capa 3: obtener el hash almacenado
     const user = await UserRepository.findByEmailWithPassword(email);
 
-    if (!user) {
-      observers.forEach(o => o.onLoginFailure(email));
-      return null;
-    }
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
+    const valid = await bcrypt.compare(password, user?.passwordHash ?? dummyPasswordHash);
+    if (!user || !valid) {
       observers.forEach(o => o.onLoginFailure(email));
       return null;
     }
@@ -57,48 +62,38 @@ export const AuthService = {
     }
 
     // Registrar el último acceso (sin bloquear la respuesta)
-    UserRepository.update(user.id, { lastLoginAt: new Date() }).catch(() => null);
+    UserRepository.update(user.id, { lastLoginAt: new Date() }).catch(() => {
+      console.warn('[AuthService] No se pudo registrar la fecha del último acceso.');
+    });
 
     observers.forEach(o => o.onLoginSuccess(user.id));
 
     // Devolvemos el usuario sin el hash
-    const { passwordHash: _, ...publicUser } = user;
-    return publicUser;
+    return {
+      id: user.id, email: user.email, rol: user.rol,
+      nombres: user.nombres, apellidos: user.apellidos, sessionVersion: user.sessionVersion,
+      estadoAcceso: user.estadoAcceso,
+    };
   },
 
   /**
-   * Genera y almacena un token de recuperación de contraseña.
+   * Entrega un enlace de un solo uso mediante el transporte SMTP configurado.
    * CU-01.2 — Recuperación de contraseña por correo.
-   * Persiste el token hasheado en la tabla PasswordResetToken (1 hora de validez).
+   * No simula una entrega ni registra credenciales en consola.
    */
   async generarTokenRecuperacion(email: string): Promise<string | null> {
-    const user = await UserRepository.findByEmail(email);
-    if (!user) return null; // No revelar si existe (E.1)
-
-    const token = crypto.randomUUID();
-    const tokenHash = await bcrypt.hash(token, 10);
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
-
-    // Persistir en la tabla PasswordResetToken
-    const { prisma } = await import('@/lib/prisma');
-    await prisma.passwordResetToken.create({
-      data: {
-        token: tokenHash,
-        userId: user.id,
-        expiresAt,
-      },
-    });
-
-    // Simulación de envío de email (console.log en desarrollo)
-    const resetUrl = `${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/recuperar/reset?token=${token}`;
-    console.log(`\n══════════════════════════════════════════════════`);
-    console.log(`📧 [EMAIL SIMULADO] Recuperación de contraseña`);
-    console.log(`   Para: ${email}`);
-    console.log(`   Enlace: ${resetUrl}`);
-    console.log(`   Expira: ${expiresAt.toISOString()}`);
-    console.log(`══════════════════════════════════════════════════\n`);
-
-    return token;
+    if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) throw new Error('EMAIL_INVALIDO');
+    if (!await LimiteAccesoRepo.consumir('recuperacion', email.trim().toLowerCase(), 5, 15 * 60_000)) throw new Error('ACCESO_LIMITE');
+    CorreoService.configuracion();
+    const user = await UserRepository.findByEmailWithPassword(email.trim().toLowerCase());
+    if (!user?.isActive) return null;
+    const token = randomBytes(32).toString('hex');
+    const hash = createHash('sha256').update(token).digest('hex');
+    const issued = await PasswordResetRepository.issue(user.id, hash);
+    if (!issued) return null;
+    try { await CorreoService.recuperacion(user.email, token); }
+    catch { await PasswordResetRepository.invalidate(issued.id); throw new Error('CORREO_NO_ENTREGADO'); }
+    return null;
   },
 
   /**
@@ -110,19 +105,10 @@ export const AuthService = {
    * @throws TOKEN_USADO - si el token ya fue consumido
    */
   async resetearPassword(token: string, newPassword: string): Promise<void> {
-    const { prisma } = await import('@/lib/prisma');
-
-    // Buscar todos los tokens no usados para comparar el hash
-    const tokens = await prisma.passwordResetToken.findMany({
-      where: { usedAt: null },
-      include: { user: true },
-    });
-
-    let matchedToken: typeof tokens[0] | null = null;
-    for (const t of tokens) {
-      const isMatch = await bcrypt.compare(token, t.token);
-      if (isMatch) { matchedToken = t; break; }
-    }
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) throw new Error('TOKEN_INVALIDO');
+    if (!await LimiteAccesoRepo.consumir('restablecer', token, 5, 15 * 60_000)) throw new Error('ACCESO_LIMITE');
+    const stored = await PasswordResetRepository.findByHash(createHash('sha256').update(token).digest('hex'));
+    const matchedToken = stored && !stored.usedAt && stored.user.isActive ? stored : null;
 
     if (!matchedToken) throw new Error('TOKEN_INVALIDO');
 
@@ -135,61 +121,40 @@ export const AuthService = {
     const fortaleza = AuthService.validarFortaleza(newPassword);
     if (!fortaleza.ok) throw new Error(fortaleza.mensaje ?? 'CLAVE_DEBIL');
 
-    // Actualizar contraseña
+    // Consumir una sola vez y cambiar credenciales en una misma transacción.
     const newHash = await AuthService.hashPassword(newPassword);
-    await UserRepository.update(matchedToken.userId, { passwordHash: newHash });
-
-    // Marcar el token como usado
-    await prisma.passwordResetToken.update({
-      where: { id: matchedToken.id },
-      data: { usedAt: new Date() },
-    });
+    const consumed = await PasswordResetRepository.consume(matchedToken.id, matchedToken.userId, newHash);
+    if (!consumed) throw new Error('TOKEN_INVALIDO');
   },
 
   /**
    * Valida la fortaleza de una contraseña nueva.
-   * Mínimo 8 caracteres, 1 mayúscula, 1 número.
+   * Frases de al menos 15 caracteres; nunca truncar el límite de bcrypt.
    */
   validarFortaleza(password: string): { ok: boolean; mensaje?: string } {
-    if (password.length < 8)       return { ok: false, mensaje: 'Mínimo 8 caracteres' };
-    if (!/[A-Z]/.test(password))   return { ok: false, mensaje: 'Debe tener al menos 1 letra mayúscula' };
-    if (!/[0-9]/.test(password))   return { ok: false, mensaje: 'Debe tener al menos 1 número' };
-    return { ok: true };
+    return validatePassword(password);
   },
 
   /**
-   * Genera una contraseña temporal alfanumérica de 10 caracteres.
+   * Genera una contraseña temporal con 144 bits aleatorios.
    * Usada al crear nuevos agricultores (CU-03.1).
    */
   generarPasswordTemporal(): string {
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    return Array.from(crypto.getRandomValues(new Uint8Array(10)))
-      .map(b => chars[b % chars.length])
-      .join('');
+    return randomBytes(18).toString('base64url');
   },
 
   /**
    * Hashea una contraseña con bcrypt (cost factor 12).
    */
   async hashPassword(password: string): Promise<string> {
+    const policy = validatePassword(password);
+    if (!policy.ok) throw new Error(policy.mensaje);
     return bcrypt.hash(password, 12);
   },
 
-  // ── CU-03.4: Blacklist de usuarios revocados (en memoria) ────
-  _revokedUserIds: new Set<string>(),
-
-  /**
-   * Revoca la sesión de un usuario, agregándolo a la blacklist.
-   * Los tokens JWT existentes serán rechazados en el callback jwt().
-   */
-  revokeUser(userId: string) {
-    AuthService._revokedUserIds.add(userId);
-  },
-
-  /**
-   * Verifica si un usuario tiene la sesión revocada.
-   */
-  isRevoked(userId: string): boolean {
-    return AuthService._revokedUserIds.has(userId);
+  async validarSesion(userId: string, sessionVersion: number) {
+    const user = await UserRepository.findSessionUser(userId);
+    if (!user?.isActive || user.sessionVersion !== sessionVersion) return null;
+    return user;
   },
 };

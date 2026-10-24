@@ -1,80 +1,16 @@
 'use client';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { useDashboardStats, Actividad } from '@/lib/hooks/useDashboardStats';
-import { DownloadCloud, FileText, FileSpreadsheet, Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 
 export default function DashboardContent() {
   const { data: session } = useSession();
-  const user = session?.user as any;
-  const { stats, loading, filters, setFilters } = useDashboardStats();
+  const user = session?.user;
+  const { stats, loading, error, filters, setFilters } = useDashboardStats();
   
   const { fechaDesde, fechaHasta, loteId, campanaId } = filters;
   const { setFechaDesde, setFechaHasta, setLoteId, setCampanaId, clearFilters } = setFilters;
-
-  function exportarCSV() {
-    if (!stats?.actividadReciente.length) return;
-    const rows = stats.actividadReciente.map(a => [
-      new Date(a.fechaRegistro).toLocaleDateString('es-EC'),
-      a.campana.codigo,
-      `${a.lote.codigo} - ${a.lote.nombre}`,
-      `${a.agricultor.nombres} ${a.agricultor.apellidos}`,
-      a.pesoBrutoKg.toFixed(2),
-      a.pesoNetoKg.toFixed(2),
-      a.clasificacion ? (a.clasificacion.dentroDelMargen ? 'OK' : 'ALERTA') : 'SIN CLASIFICAR',
-    ]);
-    const csv = [
-      ['Fecha', 'Campaña', 'Lote', 'Agricultor', 'Peso Bruto (kg)', 'Peso Neto (kg)', 'Estado'],
-      ...rows,
-    ].map(r => r.join(',')).join('\n');
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `reporte_jirah_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function exportarPDF() {
-    if (!stats?.actividadReciente.length) return;
-    const doc = new jsPDF();
-    doc.text(`Reporte Finca Jirah - ${new Date().toLocaleDateString('es-EC')}`, 14, 15);
-    const body = stats.actividadReciente.map(a => [
-      new Date(a.fechaRegistro).toLocaleDateString('es-EC'),
-      a.campana.codigo,
-      `${a.lote.codigo} - ${a.lote.nombre}`,
-      `${a.agricultor.nombres} ${a.agricultor.apellidos}`,
-      a.pesoBrutoKg.toFixed(2),
-      a.pesoNetoKg.toFixed(2),
-      a.clasificacion ? (a.clasificacion.dentroDelMargen ? 'OK' : 'ALERTA') : 'PENDIENTE'
-    ]);
-    autoTable(doc, {
-      head: [['Fecha', 'Campaña', 'Lote', 'Agricultor', 'Bruto (kg)', 'Neto (kg)', 'Estado']],
-      body,
-      startY: 20,
-    });
-    doc.save(`reporte_jirah_${new Date().toISOString().slice(0,10)}.pdf`);
-  }
-
-  function exportarExcel() {
-    if (!stats?.actividadReciente.length) return;
-    const data = stats.actividadReciente.map(a => ({
-      Fecha: new Date(a.fechaRegistro).toLocaleDateString('es-EC'),
-      Campaña: a.campana.codigo,
-      Lote: `${a.lote.codigo} - ${a.lote.nombre}`,
-      Agricultor: `${a.agricultor.nombres} ${a.agricultor.apellidos}`,
-      'Peso Bruto (kg)': a.pesoBrutoKg,
-      'Peso Neto (kg)': a.pesoNetoKg,
-      Estado: a.clasificacion ? (a.clasificacion.dentroDelMargen ? 'OK' : 'ALERTA') : 'PENDIENTE'
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Actividad Reciente');
-    XLSX.writeFile(workbook, `reporte_jirah_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }
 
   const hoy = new Date();
   const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
@@ -130,6 +66,7 @@ export default function DashboardContent() {
         )}
       </div>
 
+      {error && <p role="alert" className="p-4 mb-4 bg-red-50 text-red-800 rounded-lg">{error}</p>}
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 transition-all">
@@ -240,9 +177,7 @@ export default function DashboardContent() {
           <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <h3 className="text-sm font-bold text-agri-green-dark dark:text-white">Actividad Reciente</h3>
             <div className="flex items-center gap-2">
-              <button onClick={exportarCSV} className="text-agri-slate hover:text-agri-green-dark dark:hover:text-white transition-colors p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700" title="Exportar CSV"><DownloadCloud size={16} /></button>
-              <button onClick={exportarExcel} className="text-agri-slate hover:text-agri-green-main transition-colors p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700" title="Exportar Excel"><FileSpreadsheet size={16} /></button>
-              <button onClick={exportarPDF} className="text-agri-slate hover:text-red-600 transition-colors p-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700" title="Exportar PDF"><FileText size={16} /></button>
+              <Link href={'/dashboard/reportes?' + new URLSearchParams(Object.entries(filters).filter(([, value]) => value)).toString()} className="inline-flex gap-2 items-center min-h-[44px] px-3 text-sm" title="Abrir reporte completo"><FileText size={16} />Reporte completo</Link>
             </div>
           </div>
           <div className="overflow-x-auto">

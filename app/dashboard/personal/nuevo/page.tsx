@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 function validarCedulaFrontend(cedula: string): boolean {
@@ -21,8 +20,8 @@ function validarCedulaFrontend(cedula: string): boolean {
 }
 
 export default function NuevoAgricultorPage() {
-  const router = useRouter();
-  const [form, setForm] = useState({ nombres: '', apellidos: '', cedula: '', email: '', telefono: '', rol: 'AGRICULTOR' });
+
+  const [form, setForm] = useState({ nombres: '', apellidos: '', cedula: '', email: '', telefono: '', rol: 'AGRICULTOR_CLASIFICADOR' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{ password: string } | null>(null);
@@ -88,7 +87,8 @@ export default function NuevoAgricultorPage() {
         setErrors({ general: data.error ?? 'Error al crear agricultor' });
         return;
       }
-      setSuccessInfo({ password: data._dev_password ?? '(enviada por correo)' });
+      setSuccessInfo({ password: data._dev_password ?? 'Envíe un enlace desde el expediente del trabajador.' });
+    } catch { setErrors({ general: 'No se pudo crear la cuenta. Compruebe la conexión.' });
     } finally {
       setLoading(false);
     }
@@ -102,16 +102,16 @@ export default function NuevoAgricultorPage() {
         </div>
         <h2 style={{ marginBottom: '0.75rem' }}>Agricultor creado exitosamente</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          La cuenta fue creada. La contraseña temporal es:
+          La cuenta fue creada. Siguiente paso:
         </p>
         <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1rem 1.5rem', marginBottom: '2rem', fontFamily: 'monospace', fontSize: '1.25rem', letterSpacing: '0.1em', color: 'var(--emerald-400)', fontWeight: 700 }}>
           {successInfo.password}
         </div>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>
-          En producción, esta contraseña se envía automáticamente al correo registrado.
+          Para activar el acceso, abra el expediente y envíe un enlace para establecer contraseña. Requiere configurar el correo de la finca.
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-          <button className="btn btn-secondary" onClick={() => { setSuccessInfo(null); setForm({ nombres: '', apellidos: '', cedula: '', email: '', telefono: '', rol: 'AGRICULTOR' }); }}>
+          <button className="btn btn-secondary" onClick={() => { setSuccessInfo(null); setForm({ nombres: '', apellidos: '', cedula: '', email: '', telefono: '', rol: 'AGRICULTOR_CLASIFICADOR' }); }}>
             Crear otro
           </button>
           <Link href="/dashboard/personal" className="btn btn-primary">Ver personal</Link>
@@ -199,9 +199,7 @@ export default function NuevoAgricultorPage() {
           <div className="form-group">
             <label htmlFor="rol" className="form-label">Rol de Campo *</label>
             <select id="rol" className="form-input form-select" value={form.rol} onChange={e => update('rol', e.target.value)}>
-              <option value="AGRICULTOR">Agricultor — Registra pesajes en campo</option>
-              <option value="CLASIFICADOR">Clasificador — Registra clasificación poscosecha</option>
-              <option value="AGRICULTOR_CLASIFICADOR">Agricultor + Clasificador — Registra ambos</option>
+              <option value="AGRICULTOR_CLASIFICADOR">Personal de campo — Registra cosechas y clasificaciones</option>
             </select>
           </div>
 
@@ -211,7 +209,7 @@ export default function NuevoAgricultorPage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold-400)" strokeWidth="2" style={{ flexShrink: 0, marginTop: '1px' }}>
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            <span>Se generará una <strong>contraseña temporal alfanumérica</strong> automáticamente y se enviará al correo del trabajador. El campo Cédula quedará bloqueado una vez creado el registro.</span>
+            <span>El acceso de campo queda autorizado por usted. Después de crear la cuenta, abra el expediente y envíe el enlace para que el trabajador establezca su contraseña. No se envía una contraseña por correo.</span>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>

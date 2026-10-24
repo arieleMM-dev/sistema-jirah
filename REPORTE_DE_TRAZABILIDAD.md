@@ -1,83 +1,43 @@
-# Reporte de Trazabilidad: Documentación vs. Código Fuente
+# Trazabilidad funcional y evidencia — actualizada el 22 de octubre de 2026
 
-**Fecha de Auditoría:** 12 de Julio de 2026
-**Objetivo:** Verificar la correspondencia estricta entre las reglas de negocio descritas en `Especificacion_Casos_Uso_Jirah.md` y la implementación actual en el código fuente (específicamente la capa de negocio en `@lib`, el esquema de base de datos `@prisma` y las rutas).
+Esta matriz sustituye la declaración anterior de «100 % completo». La fuente funcional prioritaria son las respuestas del cliente y las decisiones aprobadas por el usuario, contrastadas con el Excel con fórmulas. Los casos de uso iniciales siguen siendo referencia; las reglas aclaradas posteriormente prevalecen.
 
----
+| Requisito | Implementación principal | Evidencia / alcance |
+| --- | --- | --- |
+| Acceso por rol, cuenta activa y revocación persistente | lib/auth/session.ts, AuthController, UserRepository | JWT real, desactivación/reactivación y cambio de contraseña probados, también por HTTP. |
+| Registro público y aprobación | AccesoController, acceso.service.ts, AccesoRepository, bienvenida, solicitudes | Correo confirmado antes de aprobar; SIN_ASIGNAR/PENDIENTE sin datos operativos; solo ADMIN decide con historial. HTTP y navegador prueban denegación por URL, verificación ligada a identidad y revocación de sesión al aprobar. |
+| Recuperación y establecimiento de contraseña | auth.service.ts, correo.service.ts, PasswordResetRepository | Hash del token, consumo único concurrente y límite de solicitudes. SMTP real comprobado en buzón local aislado; entrega al proveedor externo pendiente. Recuperar no aprueba una cuenta pendiente. |
+| Perfil y administración de trabajadores | PerfilController, AgricultorController, dashboard/personal | Sin hashes en respuestas; invitación explícita al correo registrado; administración protegida por rol. |
+| Preferencia de tema diferida | tema.ts, useTema, PerfilController | Cola por cuenta, reintento, conservación del último cambio y rechazo si cambió la cuenta autenticada. Una consulta vieja no reemplaza una elección posterior. |
+| Campaña multi-lote y multi-jornada, nacimiento y código manual | Campana, JornadaCosecha, catalogo.service.ts | Agrupación por campaña + lote + fecha Ecuador. No se inventa una fecha de una campaña antigua. |
+| Cultivo, funda, comprador, tara y variedad | CatalogoRepository, formularios de campañas/lotes | Cultivo/funda/variedad reutilizables desde valores guardados; cultivo y tara bloqueados si existen pesajes; tara comercial independiente. |
+| Gavetas individuales o agrupadas | PesajeRepository, pesaje.service.ts, usePesaje | Cantidad explícita, bruto, neto, trabajador y fecha/hora originales. No se infiere cantidad del peso. |
+| Clasificación por lote en el día de cosecha | jornada.service.ts, cosecha.ts | Conjunto completo de pesajes, control de versión, cinco categorías; recepción tardía conserva fecha de captura. |
+| G/P por límites configurables; N1/N2/N3 visuales | ParametrosCampana, JornadaCosecha, useClasificacion | 180/280 g por defecto; parámetros históricos conservados. El trabajador elige categoría; no se pesan frutos individuales. |
+| Cuadre (H−E−N)/(E+N) y ±4 % | cosecha.ts, JornadaRepository | Pruebas de signo, frontera, redondeo y valores del Excel; admin aprueba excepción con motivo. |
+| Captura sin conexión y sincronización sin duplicados | offline.service.ts, useSyncManager, sync.service.ts, auth/offline-session.ts | IndexedDB v1→v3 sin pérdida, aislamiento por cuenta, envíos de hasta 100, UUID estables y confirmación por registro. Captura local hasta 7 días desde validación online; JWT de 8 horas. Chrome probado al reabrir sin red, con sesión vencida y al volver a ingresar. Android/iOS físicos pendientes. |
+| Conflictos entre responsables | jornada.service.ts, JornadaRepository, RevisionJornadaRepository | Primera operación válida confirmada; versión y lista de pesajes verificadas atómicamente. Sin sobrescritura por llegada tardía. Doble clasificación concurrente comprobada. Corrección administrativa con historial. |
+| Revisar pendientes sin borrar evidencia | dashboard/campo/pendientes, adaptador offline | Errores visibles, pausa/reactivación, respaldo JSON, revisión local con original conservado. |
+| Preparación automática del teléfono | OfflineReadiness, offline-readiness.ts, next.config.ts | Descarga/verifica tres pantallas, recursos y contexto; solicita persistencia y muestra plazo de siete días. Prueba offline sin visitar previamente clasificación y con páginas envejecidas seis días. |
+| Cierre con captura todavía en otro dispositivo | Campana.cerradaAt, Lote.inactivadoAt, SyncService | Recepción diferida anterior al cierre/inactivación documentados; no permite nuevas capturas online ni evita la corrección si la jornada ya fue clasificada. |
+| Errores individuales transitorios al sincronizar | SyncController, sync-confirmation.ts, useSyncManager | Respuesta parcial distingue conflicto y fallo transitorio; reintenta estos últimos sin borrar IDs sin confirmar ni repetir automáticamente errores de negocio. |
+| Entrega con varios lotes/campañas | comercial.service.ts, ComercialRepository | Saldo por origen/categoría, tara, comprador, responsable y fecha; concurrencia no sobreconsume. |
+| Varias devoluciones y rechazo sin atribuir | Devolucion, comercial.service.ts | Gavetas/bruto/tara explícitos, acumulado limitado a entrega, origen opcional, sin reparto automático. |
+| Rechazo pasa a nacional y puede revenderse | DetalleEntrega.devolucionId, servicio comercial | Reventa N1/N2/N3 con saldo propio; no crea producción. |
+| Correcciones de jornadas cerradas solo por admin | revision-jornada.service.ts, RevisionJornadaRepository | Motivo, antes/después, control concurrente y nueva aprobación. Bloqueadas si existen entregas vigentes. |
+| Anulación comercial con motivo e historial | anulacion-comercial.service.ts, AnulacionComercialRepository | Admin, conservación del original, idempotencia y orden reventa → devolución → entrega; saldos y reportes excluyen anulados; concurrencia protegida. |
+| Pesaje tardío de jornada cerrada | Corrección con respaldo de Pendientes | Importación auditada de UUID, autor y fecha originales; sincronizar el original no deshace la corrección. |
+| Estadísticas y filtros de campaña/lote/fechas | dashboard.service.ts, filtros-cosecha.ts | Fechas válidas, jornada Ecuador hasta último milisegundo y pendientes diferenciados. |
+| Reportes completos CSV/XLSX/PDF | reporte.service.ts, lib/reportes, dashboard/reportes | Todos los registros del filtro; cinco categorías, fórmulas, entregas, rechazos y revisiones. Descargas reales probadas en Chrome. |
+| Consultas de trabajo acotadas | PesajeRepository, JornadaRepository, ComercialRepository | Diez pesajes recientes; páginas de 25 jornadas/entregas y búsqueda de jornada por ID. Índices, 64 jornadas/128 pesajes aislados sin omitir filas ni gavetas. Reportes completos independientes. Medición de volumen real y conjunto de saldos comerciales pendientes. |
+| Preservación de datos anteriores | Migraciones y scripts/verify-migration.cjs | Contenido anterior comparado contra respaldo e integridad SQLite comprobada. Históricos separados; sin categorías inventadas. |
 
-## 1. Resumen de Cobertura
+## Restricciones expresas
 
-Tras la reciente fase de desarrollo y refactorización, el diagnóstico de los módulos es el siguiente:
-
-- **Módulo 1 (Acceso):** 100% Completo.
-- **Módulo 2 (Perfil):** 100% Completo.
-- **Módulo 3 (Agricultores):** 100% Completo.
-- **Módulo 4 (Catálogos):** 100% Completo.
-- **Módulo 5 (Transacciones en Campo):** 100% Completo.
-- **Módulo 6 (Productividad):** 100% Completo.
-
-**Estado global:** El sistema se encuentra totalmente alineado a las reglas de negocio y arquitectónicas establecidas.
-
----
-
-## 2. Matriz de Trazabilidad Directa
-
-| ID Caso de Uso | Descripción | Archivo/Clase/Método Implementado | Estado |
-| :--- | :--- | :--- | :--- |
-| **CU-01.1** | Iniciar sesión y redirección por rol | `app/api/auth/[...nextauth]/route.ts`<br>`app/login/page.tsx` | Completo |
-| **CU-01.2** | Recuperar contraseña con token de 1h | `lib/services/auth.service.ts` (generarTokenRecuperacion, resetearPassword)<br>`lib/controllers/AuthController.ts` | Completo |
-| **CU-02.1** | Actualizar datos y Avatar (PNG/JPG <2MB) | `lib/controllers/PerfilController.ts` (actualizar)<br>`app/dashboard/perfil/page.tsx` | Completo |
-| **CU-02.2** | Modificar contraseña con política fuerte | `lib/controllers/PerfilController.ts` (cambiarPassword)<br>`lib/services/auth.service.ts` (validarFortaleza) | Completo |
-| **CU-02.3** | Modificar preferencias (Tema y local fallback) | `lib/controllers/PerfilController.ts` (actualizar)<br>`app/dashboard/layout.tsx` | Completo |
-| **CU-03.1** | Crear agricultor (Valida Cédula EC) | `lib/services/agricultor.service.ts` (crear, validarCedulaEC) | Completo |
-| **CU-03.2** | Consultar agricultor (Búsqueda en tiempo real) | `lib/services/agricultor.service.ts` (buscar) | Completo |
-| **CU-03.3** | Editar agricultor (Evita duplicidad de correo) | `lib/services/agricultor.service.ts` (editar) | Completo |
-| **CU-03.4** | Desactivar agricultor (Soft-delete y revocación) | `lib/services/agricultor.service.ts` (desactivar)<br>`lib/services/auth.service.ts` (revokeUser) | Completo |
-| **CU-04.1.1** | Registrar Campaña con tara base de 1.70kg | `lib/services/catalogo.service.ts` (crearCampana) | Completo |
-| **CU-04.1.3** | Editar Campaña y bloqueo de Tara | `lib/services/catalogo.service.ts` (actualizarCampana) | Completo |
-| **CU-04.2.1** | Registrar Lote con variedad de cultivo | `prisma/schema.prisma` (Lote.variedad)<br>`lib/services/catalogo.service.ts` | Completo |
-| **CU-04.3.1** | Registrar Comprador (Tolerancia) | `lib/services/catalogo.service.ts` (crearComprador) | Completo |
-| **CU-05.1** | Registrar pesaje bruto (Cosecha cruda) | `lib/services/pesaje.service.ts` (crearPesajeBruto) | Completo |
-| **CU-05.2** | Clasificación poscosecha y tolerancia ±4% | `lib/services/calculo/ICalculoMargen.ts` (Estrategia 4%)<br>`lib/services/clasificacion.service.ts` | Completo |
-| **CU-05.3** | Registro ajuste comprador y fruta efectiva | `lib/services/ajuste.service.ts` (registrar)<br>`lib/controllers/AjusteController.ts` | Completo |
-| **CU-05.4** | Sync Offline a PostgreSQL con Backoff 500 | `lib/hooks/useSyncManager.ts`<br>`public/sw.js`<br>`lib/observers/SyncObserver.ts` | Completo |
-| **CU-06.1** | Dashboard interactivo y filtros (Fechas/Lote) | `app/api/dashboard/stats/route.ts`<br>`app/dashboard/page.tsx` | Completo |
-| **CU-06.1.4** | Generar reporte exportable (PDF/Excel) | `app/dashboard/page.tsx` (exportarPDF, exportarExcel) | Completo |
-
----
-
-## 3. Auditoría de Excepciones (Flujos Alternativos)
-
-Se verificó la existencia en código de los manejos de errores obligatorios estipulados en los Casos de Uso.
-
-1. **(E.1) Cuenta inactiva o credenciales inválidas (CU-01.1):** 
-   - *Validación:* Implementado en `authOptions.authorize`. Retorna códigos de error específicos que son interpretados en `app/login/page.tsx`.
-2. **(E.1) Cédula o correo duplicado (CU-03.1):** 
-   - *Validación:* Implementado en `AgricultorService.crear`. Lanza `EMAIL_EN_USO` o `CEDULA_EN_USO`.
-3. **(E.1) Auto-desactivación (CU-03.4):** 
-   - *Validación:* Implementado en `AgricultorService.desactivar`. `if (id === adminId) throw new Error('SELF_DEACTIVATION');`.
-4. **(E.1) Tara bloqueada por pesajes existentes (CU-04.1.3):**
-   - *Validación:* Implementado en `catalogo.service.ts`. Arroja `TARA_BLOQUEADA` si la campaña ya tiene `_count.pesajes > 0` y se intenta cambiar `taraBase`.
-5. **(E.1) Límite de Tolerancia de descuadre (CU-05.2):**
-   - *Validación:* Implementado con el Patrón Strategy en `ICalculoMargen.ts`. Valida estrictamente el ±4%. El guardado bloquea si excede el límite y exige autorización.
-6. **(E.1) Rechazo excede volumen despachado (CU-05.3):**
-   - *Validación:* Implementado en `ajuste.service.ts`. `if (pesoRechazado > clasificacion.pesoExportacionKg) throw new Error('RECHAZO_EXCEDE_EXPORTACION');`.
-7. **(E.1) Fallo 500 y Backoff Exponencial (CU-05.4):**
-   - *Validación:* Implementado en `useSyncManager.ts`. Multiplica el delay `backoffRef.current * 2` hasta un tope máximo (`MAX_BACKOFF = 60000ms`) si `fetch` retorna `res.status >= 500`.
-
----
-
-## 4. Análisis de Brechas (Gaps) y Discrepancias
-
-**Brechas Detectadas (Faltantes):**
-*NINGUNA*. Tras la última iteración de desarrollo guiada por Arquitectura Limpia, todas las brechas detectadas previamente han sido resueltas.
-
-**Discrepancias (Reglas que contradicen el .md):**
-*NINGUNA*. 
-- El esquema de base de datos soporta los campos necesarios (`Lote.variedad`).
-- Las políticas estrictas (como revocación de JWT tras eliminación lógica) están operando mediante la _blacklist_ en memoria en `AuthService`.
-- La tara base por defecto asignada vía código se mantiene en 1.70kg.
-- El cálculo de porcentaje de Fruta Efectiva respeta la fórmula al restar el peso rechazado del peso de exportación.
-
-**Conclusión Final:**
-El aplicativo de Finca Jirah cumple al 100% con los requerimientos documentados en la Especificación de Casos de Uso y respeta los Patrones de Diseño exigidos (Strategy, Observer, State). No existen deudas técnicas críticas pendientes con respecto al documento.
+- No hay descarte separado: alcance aprobado de exportación + nacional. Nacional no significa fruta destruida.
+- Una devolución sin origen permite ajustar el agregado de una entrega completa, pero impide un ajuste exacto al filtrar parte de sus orígenes. El reporte señala la falta de atribución.
+- Una jornada con entregas vigentes queda protegida. El administrador puede conciliar sus dependencias mediante anulaciones auditadas, corregirla y registrar los movimientos correctos. No se reactivan ni se sobrescriben movimientos anulados.
+- El Excel agrupa varias jornadas; no se importan filas a días concretos sin origen suficiente. Tampoco se adivina la cantidad de gavetas del rechazo ambiguo.
+- No hay precios, facturación ni cobros monetarios: el alcance confirmado respalda kilos entregados/aceptados y productividad.
+- Falta validar proveedor SMTP externo, dispositivos de finca, actualización entre compilaciones con pendientes, volumen real e infraestructura publicada como parte de la aceptación operativa. El informe integral y su actualización distinguen los defectos cerrados de los trabajos aún pendientes.
+- Persisten alertas altas de dependencias; consultar el informe vigente. No se declara ausencia de riesgos.

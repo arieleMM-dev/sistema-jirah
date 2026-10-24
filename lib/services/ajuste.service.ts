@@ -41,6 +41,7 @@ export const AjusteService = {
     motivoRechazo?: string;
     observaciones?: string;
   }) {
+    if (!Number.isFinite(input.pesoRechazado) || input.pesoRechazado < 0) throw new Error('PESO_RECHAZADO_INVALIDO');
     // 1. Validar que la clasificación existe
     const clasificacion = await prisma.clasificacion.findUnique({
       where: { id: input.clasificacionId },

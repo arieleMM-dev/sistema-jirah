@@ -1,129 +1,130 @@
-/**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║  CAPA DE PRESENTACIÓN — Hook useSyncManager                 ║
- * ║  CU-05.4: Sincronización offline con backoff exponencial.   ║
- * ╚══════════════════════════════════════════════════════════════╝
- */
-
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useSession } from 'next-auth/react';
 import { networkSyncSubject } from '@/lib/observers/SyncObserver';
 import { offlineService } from '@/lib/services/offline.service';
+import { readSyncConfirmation } from '@/lib/sync-confirmation';
 
-const INITIAL_BACKOFF = 1000; // 1 segundo
-const MAX_BACKOFF = 60000;    // 1 minuto máximo
+function subscribeNetwork(callback: () => void) {
+  const online = () => { networkSyncSubject.notify('online'); callback(); };
+  const offline = () => { networkSyncSubject.notify('offline'); callback(); };
+  window.addEventListener('online', online);
+  window.addEventListener('offline', offline);
+  return () => {
+    window.removeEventListener('online', online);
+    window.removeEventListener('offline', offline);
+  };
+}
+const getOnlineSnapshot = () => navigator.onLine;
+const getServerSnapshot = () => true;
 
 export function useSyncManager() {
-  const [isOnline, setIsOnline] = useState(true);
-  const backoffRef = useRef(INITIAL_BACKOFF);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { data: session, status } = useSession();
+  const userId = status === 'authenticated' ? session?.user?.id : undefined;
+  const isOnline = useSyncExternalStore(subscribeNetwork, getOnlineSnapshot, getServerSnapshot);
+  const [failure, setFailure] = useState<{ userId: string; message: string } | null>(null);
+  const retryRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    setIsOnline(navigator.onLine);
+    if (!userId || !isOnline) return;
+    let cancelled = false;
+    let syncing = false;
+    let requested = false;
+    let backoff = 1000;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let transientIds: Set<string> | undefined;
+    const controller = new AbortController();
 
     const doSync = async () => {
-      if (!navigator.onLine) return;
-
-      let hasErrors = false;
-      let hasDataToSync = false;
-
+      if (cancelled || syncing || !navigator.onLine) return;
+      syncing = true;
+      let hasData = false;
+      let failureMessage: string | null = null;
+      let retryable = false;
+      const nextTransient = new Set<string>();
       try {
-        // 1. Sincronizar Pesajes
-        const pesajes = await offlineService.getPendingPesajes();
-        if (pesajes.length > 0) {
-          hasDataToSync = true;
-          const res = await fetch('/api/sync/pesajes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pesajes }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.savedIds) await offlineService.removePesajes(data.savedIds);
-          } else if (res.status >= 500) {
-            hasErrors = true;
+        const groups = [
+          { kind: 'pesajes' as const, load: () => offlineService.getPendingPesajes(userId), remove: (ids: string[]) => offlineService.removePesajes(ids) },
+          { kind: 'clasificaciones' as const, load: () => offlineService.getPendingClasificaciones(userId), remove: (ids: string[]) => offlineService.removeClasificaciones(ids) },
+        ];
+        for (const group of groups) {
+          if (cancelled) return;
+          const all = (await group.load()).filter(p => !transientIds || transientIds.has(p.localId));
+          for (let offset = 0; offset < all.length; offset += 100) {
+            const pending = all.slice(offset, offset + 100);
+            if (pending.length === 0) continue;
+            hasData = true;
+            const attempt = new AbortController();
+            const cancelAttempt = () => attempt.abort();
+            controller.signal.addEventListener('abort', cancelAttempt, { once: true });
+            const timeout = setTimeout(() => attempt.abort(), 30_000);
+            try {
+              const response = await fetch(`/api/sync/${group.kind}`, {
+                method: 'POST', signal: attempt.signal,
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [group.kind]: pending }),
+              });
+              if (!response.ok) {
+                retryable = response.status >= 500 || response.status === 429;
+                if (response.status === 429) backoff = Math.max(backoff, Math.min(60_000, Number(response.headers.get('Retry-After')) * 1000 || 1000));
+                throw new Error(response.status === 401
+                  ? 'La sesión venció. Inicie sesión nuevamente; sus registros siguen guardados.'
+                  : 'No se pudo sincronizar. Sus registros siguen guardados.');
+              }
+              const confirmation = readSyncConfirmation(await response.json(), pending.map(p => p.localId));
+              await offlineService.errores(userId, group.kind, confirmation.errors);
+              await group.remove(confirmation.savedIds);
+              failureMessage ??= confirmation.error;
+              retryable ||= confirmation.retryable;
+              for (const e of confirmation.errors) if (e.retryable && e.localId) nextTransient.add(e.localId);
+            } catch (error) {
+              if (attempt.signal.aborted && !cancelled) retryable = true;
+              throw error;
+            } finally {
+              clearTimeout(timeout);
+              controller.signal.removeEventListener('abort', cancelAttempt);
+            }
           }
         }
-
-        // 2. Sincronizar Clasificaciones
-        const clasif = await offlineService.getPendingClasificaciones();
-        if (clasif.length > 0) {
-          hasDataToSync = true;
-          const res = await fetch('/api/sync/clasificaciones', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clasificaciones: clasif }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.savedIds) await offlineService.removeClasificaciones(data.savedIds);
-          } else if (res.status >= 500) {
-            hasErrors = true;
-          }
+        if (!cancelled) {
+          setFailure(failureMessage ? { userId, message: failureMessage } : null);
+          if (hasData) networkSyncSubject.notify(failureMessage ? 'sync-failed' : 'sync-complete');
+          transientIds = nextTransient.size ? nextTransient : undefined;
+          if (!retryable) backoff = 1000;
+          if (hasData && !failureMessage) timer = setTimeout(() => void doSync(), 100);
+          else if (retryable) timer = setTimeout(() => { backoff = Math.min(backoff * 2, 60_000); void doSync(); }, backoff);
         }
-
-        if (hasErrors) {
-          // Fallo 500: Aplicar backoff exponencial
-          // Fallo 500: Aplicar backoff exponencial
-          networkSyncSubject.notify('sync-failed');
-          
-          if (timeoutRef.current) clearTimeout(timeoutRef.current);
-          timeoutRef.current = setTimeout(() => {
-            backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF);
-            doSync();
-          }, backoffRef.current);
-          
-        } else if (hasDataToSync) {
-          // Éxito total
-          networkSyncSubject.notify('sync-complete');
-          backoffRef.current = INITIAL_BACKOFF; // Resetear backoff
-        }
-      } catch (e) {
-        // Fallo de red: Aplicar backoff exponencial
+      } catch (error: unknown) {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : 'No se pudo sincronizar. Sus registros siguen guardados.';
+        setFailure({ userId, message });
         networkSyncSubject.notify('sync-failed');
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(() => {
-          backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF);
-          doSync();
-        }, backoffRef.current);
-      }
-    };
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      networkSyncSubject.notify('online');
-      backoffRef.current = INITIAL_BACKOFF; // Reset backoff al volver la conexión
-      doSync(); // Intentar sincronizar inmediatamente
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      networkSyncSubject.notify('offline');
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Escuchar mensajes del Service Worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data?.type === 'SYNC_TRIGGER') {
-          doSync();
+        if (retryable || error instanceof TypeError) {
+          timer = setTimeout(() => { backoff = Math.min(backoff * 2, 60_000); void doSync(); }, backoff);
         }
-      });
-    }
-
-    // Intento inicial al cargar
-    if (navigator.onLine) doSync();
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      } finally { syncing = false; if (requested && !cancelled) { requested = false; timer = setTimeout(() => void doSync(), 100); } }
     };
-  }, []);
+    const retry = () => {
+      if (syncing) { requested = true; return; }
+      if (timer) clearTimeout(timer);
+      backoff = 1000;
+      transientIds = undefined;
+      void doSync();
+    };
+    retryRef.current = retry;
+    window.addEventListener('jirah-queue-changed', retry);
+    const onWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SYNC_TRIGGER') retry();
+    };
+    navigator.serviceWorker?.addEventListener('message', onWorkerMessage);
+    void doSync();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (timer) clearTimeout(timer);
+      retryRef.current = () => {};
+      window.removeEventListener('jirah-queue-changed', retry);
+      navigator.serviceWorker?.removeEventListener('message', onWorkerMessage);
+    };
+  }, [userId, isOnline]);
 
-  return { isOnline };
+  return { isOnline, syncError: failure?.userId === userId ? failure?.message : null, retrySync: () => retryRef.current() };
 }

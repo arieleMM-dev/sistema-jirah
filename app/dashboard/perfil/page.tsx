@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession, SessionProvider } from 'next-auth/react';
+import Image from 'next/image';
+import { useSession } from 'next-auth/react';
+import { cerrarSesionCampo } from '@/lib/auth/CampoSessionProvider';
+import { useTema } from '@/lib/hooks/useTema';
 
 function PerfilContent() {
   const { data: session } = useSession();
-  const user = session?.user as any;
+  const user = session?.user;
   const [tab, setTab] = useState<'datos' | 'password' | 'preferencias'>('datos');
 
   // CU-02.1 — Actualizar datos
@@ -20,31 +23,21 @@ function PerfilContent() {
   const [pwOk, setPwOk] = useState(false);
 
   // CU-02.3 — Preferencias (tema)
-  const [tema, setTema] = useState<'CLARO' | 'OSCURO'>('OSCURO');
+  const { tema, guardar: saveTema, mensaje: estadoTema } = useTema(user?.id);
 
-  // Avatar local simulation (UI only for now)
+  // Avatar del perfil autenticado.
   const [localAvatar, setLocalAvatar] = useState<string | null>(null);
   
   useEffect(() => {
-    // Load local avatar from localStorage if available
-    const savedAvatar = localStorage.getItem('jirah-avatar');
-    if (savedAvatar) setLocalAvatar(savedAvatar);
-    
-    fetch('/api/perfil').then(r => r.json()).then(d => {
+    const controller = new AbortController();
+    fetch('/api/perfil', { signal: controller.signal }).then(r => { if (!r.ok) throw new Error('No se pudo cargar el perfil.'); return r.json(); }).then(d => {
       setTelefono(d.user?.telefono ?? '');
-      setTema(d.user?.tema ?? 'OSCURO');
       if (d.user?.avatar) {
         setLocalAvatar(d.user.avatar);
-        localStorage.setItem('jirah-avatar', d.user.avatar);
       }
-    });
+    }).catch(() => { if (!controller.signal.aborted) setToastDatos('error:No se pudo cargar el perfil.'); });
+    return () => controller.abort();
   }, []);
-
-  // Aplicar tema al DOM
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', tema === 'CLARO' ? 'light' : 'dark');
-    localStorage.setItem('jirah-tema', tema);
-  }, [tema]);
 
   async function saveDatos(e: React.FormEvent) {
     e.preventDefault();
@@ -54,6 +47,7 @@ function PerfilContent() {
       return;
     }
     setSavingDatos(true);
+    try {
     const res = await fetch('/api/perfil', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -67,16 +61,8 @@ function PerfilContent() {
       setToastDatos(`error:${d.error}`);
     }
     setTimeout(() => setToastDatos(''), 3500);
-  }
-
-  async function saveTema(newTema: 'CLARO' | 'OSCURO') {
-    setTema(newTema);
-    // Optimistic update — guardamos localmente y sincronizamos en segundo plano (CU-02.3)
-    await fetch('/api/perfil', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tema: newTema }),
-    }).catch(() => {/* Si no hay internet, el localStorage persiste */});
+    } catch { setToastDatos('error:No se pudo confirmar el cambio. Compruebe la conexión.'); }
+    finally { setSavingDatos(false); }
   }
 
   async function savePassword(e: React.FormEvent) {
@@ -84,6 +70,7 @@ function PerfilContent() {
     setPwError('');
     if (pwForm.new !== pwForm.confirm) { setPwError('Las contraseñas nuevas no coinciden'); return; }
     setSavingPw(true);
+    try {
     const res = await fetch('/api/perfil', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,10 +81,12 @@ function PerfilContent() {
     if (res.ok) {
       setPwOk(true);
       setPwForm({ current: '', new: '', confirm: '' });
-      setTimeout(() => setPwOk(false), 4000);
+      await cerrarSesionCampo();
     } else {
       setPwError(data.error);
     }
+    } catch { setPwError('No se pudo confirmar el cambio. Compruebe la conexión.'); }
+    finally { setSavingPw(false); }
   }
 
   const initials = user ? `${user.nombres?.[0] ?? ''}${user.apellidos?.[0] ?? ''}`.toUpperCase() : '?';
@@ -123,7 +112,7 @@ function PerfilContent() {
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6 flex items-center gap-6">
         <div className="flex-shrink-0 w-20 h-20 rounded-full bg-agri-green-main text-white flex items-center justify-center text-3xl font-bold shadow-sm overflow-hidden">
           {localAvatar ? (
-            <img src={localAvatar} alt="Avatar" className="w-full h-full object-cover" />
+            <Image src={localAvatar} unoptimized width={96} height={96} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
             initials
           )}
@@ -141,15 +130,15 @@ function PerfilContent() {
 
       {/* Tabs */}
       <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-lg">
-        {[
+        {([
           { key: 'datos', label: 'Datos de Contacto' },
           { key: 'password', label: 'Contraseña' },
           { key: 'preferencias', label: 'Preferencias' },
-        ].map(t => (
+        ] as const).map(t => (
           <button
             key={t.key}
             className={`flex-1 py-2.5 px-4 text-sm font-semibold rounded-md transition-all ${tab === t.key ? 'bg-white dark:bg-gray-800 text-agri-green-dark dark:text-white shadow-sm' : 'text-agri-slate hover:text-agri-green-dark dark:text-gray-400 dark:hover:text-gray-200'}`}
-            onClick={() => setTab(t.key as any)}
+            onClick={() => setTab(t.key)}
           >
             {t.label}
           </button>
@@ -205,7 +194,9 @@ function PerfilContent() {
                       const reader = new FileReader();
                       reader.onloadend = async () => {
                         const b64 = reader.result as string;
+                        const anterior = localAvatar;
                         setLocalAvatar(b64);
+                        try {
                         
                         // CU-02.1: Persistir en servidor
                         const res = await fetch('/api/perfil', {
@@ -215,14 +206,15 @@ function PerfilContent() {
                         });
                         
                         if (res.ok) {
-                          localStorage.setItem('jirah-avatar', b64);
+
                           setToastDatos('ok:Avatar actualizado correctamente');
                         } else {
                           const errorData = await res.json();
                           setToastDatos(`error:${errorData.error}`);
-                          setLocalAvatar(localStorage.getItem('jirah-avatar')); // Revertir
+                          setLocalAvatar(anterior);
                         }
                         setTimeout(() => setToastDatos(''), 3500);
+                        } catch { setLocalAvatar(anterior); setToastDatos('error:No se pudo guardar el avatar.'); }
                       };
                       reader.readAsDataURL(file);
                     }
@@ -244,7 +236,7 @@ function PerfilContent() {
       {tab === 'password' && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
           <h3 className="text-lg font-bold text-agri-green-dark dark:text-white mb-2">Cambiar Contraseña</h3>
-          <p className="text-sm text-agri-slate dark:text-gray-400 mb-6">Mínimo 8 caracteres, 1 mayúscula y 1 número</p>
+          <p className="text-sm text-agri-slate dark:text-gray-400 mb-6">Use una frase de al menos 15 caracteres, hasta 72 bytes.</p>
 
           {pwOk && (
             <div className="flex items-center gap-2 p-4 mb-6 text-sm font-medium text-agri-green-dark bg-agri-green-main/10 rounded-lg border border-agri-green-main/20 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50">
@@ -307,8 +299,8 @@ function PerfilContent() {
               </button>
             ))}
           </div>
-          <p className="text-xs text-agri-slate dark:text-gray-400 mt-6">
-            La preferencia se guarda localmente y se sincroniza con el servidor cuando hay conexión.
+          <p role="status" className="text-xs text-agri-slate dark:text-gray-400 mt-6">
+            {estadoTema}
           </p>
         </div>
       )}
@@ -317,5 +309,5 @@ function PerfilContent() {
 }
 
 export default function PerfilPage() {
-  return <SessionProvider><PerfilContent /></SessionProvider>;
+  return <PerfilContent />;
 }

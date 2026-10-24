@@ -8,8 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from './AuthController';
+import { getAuthenticatedSession } from '@/lib/auth/session';
 import {
   CampanaService,
   LoteService,
@@ -18,6 +17,10 @@ import {
 
 // ── Error → HTTP status mapper ───────────────────────────────
 const ERROR_MAP: Record<string, [number, string]> = {
+  DATOS_INVALIDOS: [422, 'Revise los tipos, longitudes y valores de los datos del catálogo.'],
+  CULTIVO_BLOQUEADO: [409, 'El cultivo no puede cambiar si la campaña ya tiene pesajes. Cree una campaña para el nuevo cultivo.'],
+  PARAMETROS_INVALIDOS: [422, 'Los límites deben ser números positivos y el mínimo G debe superar al mínimo P'],
+  FECHA_NACIMIENTO_INVALIDA: [422, 'La fecha de nacimiento debe ser una fecha válida'],
   CODIGO_REQUERIDO:       [422, 'El código es obligatorio'],
   NOMBRE_REQUERIDO:       [422, 'El nombre/razón social es obligatorio'],
   FUNDA_REQUERIDA:        [422, 'El color de funda es obligatorio'],
@@ -32,19 +35,33 @@ const ERROR_MAP: Record<string, [number, string]> = {
   LOTE_EN_USO:            [409, 'No se puede inactivar el lote. Hay una campaña activa operando sobre este lote.'],
   COMPRADOR_NO_ENCONTRADO:[404, 'Comprador no encontrado'],
   RUC_DUPLICADO:          [409, 'El comprador ya se encuentra en el directorio.'],
-  TOLERANCIA_INVALIDA:    [422, 'La tolerancia debe ser un porcentaje entre 0 y 100'],
+  TOLERANCIA_INVALIDA:    [422, 'El cuadre usa el margen fijo de ±4 % aprobado para la finca. No se configura por comprador.'],
 };
 
 function handleError(err: unknown) {
+  if (err instanceof SyntaxError) return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+  if (err && typeof err === 'object' && 'code' in err) {
+    if (err.code === 'P2002') return NextResponse.json({ error: 'El identificador ya existe.' }, { status: 409 });
+    if (err.code === 'P2003') return NextResponse.json({ error: 'La referencia seleccionada no existe.' }, { status: 422 });
+  }
   const msg = err instanceof Error ? err.message : 'ERROR_DESCONOCIDO';
   const [status, detail] = ERROR_MAP[msg] ?? [500, 'Error interno del servidor'];
   return NextResponse.json({ error: detail }, { status });
 }
 
+async function leerDatos(req: NextRequest) {
+  const body = await req.json();
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('DATOS_INVALIDOS');
+  for (const campo of ['nombre', 'codigo', 'funda', 'cultivo', 'variedad', 'descripcion', 'ruc', 'contacto']) {
+    if (body[campo] !== undefined && typeof body[campo] !== 'string') throw new Error('DATOS_INVALIDOS');
+  }
+  return body;
+}
+
 async function requireAdmin() {
-  const session = await getServerSession(authOptions);
+  const session = await getAuthenticatedSession();
   if (!session) return null;
-  const user = session.user as any;
+  const user = session.user;
   if (user.rol !== 'ADMIN') return null;
   return user;
 }
@@ -54,11 +71,13 @@ async function requireAdmin() {
 // ═══════════════════════════════════════════════════
 export const CampanaController = {
   async list(_req: NextRequest) {
-    const user = await requireAdmin();
-    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const session = await getAuthenticatedSession();
+    if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     try {
       const campanas = await CampanaService.listar();
-      return NextResponse.json({ campanas });
+      return NextResponse.json({ campanas: session.user.rol === 'ADMIN' ? campanas : campanas
+        .filter(c => c.isActive)
+        .map(({ id, codigo, nombre, taraBase, isActive, minimoPGr, minimoGGr, versionParametros }) => ({ id, codigo, nombre, taraBase, isActive, minimoPGr, minimoGGr, versionParametros })) });
     } catch (e) { return handleError(e); }
   },
 
@@ -66,7 +85,7 @@ export const CampanaController = {
     const user = await requireAdmin();
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     try {
-      const body = await req.json();
+      const body = await leerDatos(req);
       const campana = await CampanaService.crear(body);
       return NextResponse.json({ campana }, { status: 201 });
     } catch (e) { return handleError(e); }
@@ -76,7 +95,7 @@ export const CampanaController = {
     const user = await requireAdmin();
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     try {
-      const body = await req.json();
+      const body = await leerDatos(req);
       const campana = await CampanaService.actualizar(id, body);
       return NextResponse.json({ campana });
     } catch (e) { return handleError(e); }
@@ -97,11 +116,13 @@ export const CampanaController = {
 // ═══════════════════════════════════════════════════
 export const LoteController = {
   async list(_req: NextRequest) {
-    const user = await requireAdmin();
-    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    const session = await getAuthenticatedSession();
+    if (!session) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     try {
       const lotes = await LoteService.listar();
-      return NextResponse.json({ lotes });
+      return NextResponse.json({ lotes: session.user.rol === 'ADMIN' ? lotes : lotes
+        .filter(l => l.isActive)
+        .map(({ id, codigo, nombre, isActive }) => ({ id, codigo, nombre, isActive })) });
     } catch (e) { return handleError(e); }
   },
 
@@ -109,7 +130,7 @@ export const LoteController = {
     const user = await requireAdmin();
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     try {
-      const body = await req.json();
+      const body = await leerDatos(req);
       const lote = await LoteService.crear(body);
       return NextResponse.json({ lote }, { status: 201 });
     } catch (e) { return handleError(e); }
@@ -119,7 +140,7 @@ export const LoteController = {
     const user = await requireAdmin();
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     try {
-      const body = await req.json();
+      const body = await leerDatos(req);
       const lote = await LoteService.actualizar(id, body);
       return NextResponse.json({ lote });
     } catch (e) { return handleError(e); }
@@ -152,7 +173,7 @@ export const CompradorController = {
     const user = await requireAdmin();
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     try {
-      const body = await req.json();
+      const body = await leerDatos(req);
       const nom = body.nombre?.trim() || '';
       const rucVal = body.ruc?.trim() || '';
       const contactoVal = body.contacto?.trim() || '';
@@ -180,7 +201,7 @@ export const CompradorController = {
     const user = await requireAdmin();
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     try {
-      const body = await req.json();
+      const body = await leerDatos(req);
       const nom = body.nombre?.trim() || '';
       const rucVal = body.ruc?.trim() || '';
       const contactoVal = body.contacto?.trim() || '';

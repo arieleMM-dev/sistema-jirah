@@ -10,24 +10,25 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from './AuthController';
+import { getAuthenticatedSession } from '@/lib/auth/session';
 import { UserRepository } from '@/lib/repositories';
 import { AuthService } from '@/lib/services/auth.service';
 import bcrypt from 'bcryptjs';
+import { LimiteAccesoRepo } from '@/lib/repositories/LimiteAccesoRepository';
+import { MAX_PASSWORD_BYTES } from '@/lib/password-policy';
 
 export const PerfilController = {
   /**
    * GET /api/perfil
    * CU-02 — Obtener datos del perfil del usuario en sesión.
    */
-  async obtener(req: NextRequest): Promise<NextResponse> {
-    const session = await getServerSession(authOptions);
+  async obtener(_req: NextRequest): Promise<NextResponse> {
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const user = await UserRepository.findById((session.user as any).id);
+    const user = await UserRepository.findById(session.user.id);
     if (!user) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
@@ -41,18 +42,23 @@ export const PerfilController = {
    * CU-02.3 — Cambiar preferencia de tema (CLARO/OSCURO).
    */
   async actualizar(req: NextRequest): Promise<NextResponse> {
-    const session = await getServerSession(authOptions);
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const { telefono, tema, avatar } = await req.json();
-    const userId = (session.user as any).id;
+    const expectedUser = req.headers.get('X-Jirah-User');
+    if (expectedUser && expectedUser !== session.user.id) return NextResponse.json({ error: 'La cuenta cambió. La preferencia se conserva para su propietario.' }, { status: 409 });
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 });
+    const { telefono, tema, avatar } = body;
+    const userId = session.user.id;
 
     // Validación de teléfono (Capa 2 — regla de negocio)
     let telValidado = telefono;
     if (telefono !== undefined && telefono !== null) {
-      telValidado = String(telefono).trim();
+      if (typeof telefono !== 'string') return NextResponse.json({ error: 'Teléfono inválido' }, { status: 422 });
+      telValidado = telefono.trim();
       if (telValidado && !/^09\d{8}$/.test(telValidado)) {
         return NextResponse.json(
           { error: 'El teléfono debe tener 10 dígitos y empezar con 09' },
@@ -70,12 +76,20 @@ export const PerfilController = {
     if (avatar !== undefined) {
       if (avatar !== null && avatar !== '') {
         // Verificar formato
-        if (!avatar.startsWith('data:image/jpeg;base64,') && !avatar.startsWith('data:image/png;base64,')) {
+        if (typeof avatar !== 'string' || !avatar.startsWith('data:image/jpeg;base64,') && !avatar.startsWith('data:image/png;base64,')) {
           return NextResponse.json({ error: 'El avatar debe ser una imagen PNG o JPG válida' }, { status: 422 });
         }
         // Verificar tamaño (~2MB base64 = 2.8MB string)
         if (avatar.length > 2.8 * 1024 * 1024) {
           return NextResponse.json({ error: 'La imagen supera los 2MB permitidos' }, { status: 422 });
+        }
+        const payload = avatar.slice(avatar.indexOf(',') + 1);
+        const bytes = Buffer.from(payload, 'base64');
+        const png = avatar.startsWith('data:image/png;');
+        const validSignature = png ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+          : bytes.length >= 4 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+        if (!validSignature || bytes.length > 2 * 1024 * 1024 || bytes.toString('base64') !== payload) {
+          return NextResponse.json({ error: 'La imagen PNG o JPG no es válida.' }, { status: 422 });
         }
       }
     }
@@ -95,19 +109,25 @@ export const PerfilController = {
    * Reglas: contraseña actual válida + nueva contraseña cumple fortaleza mínima.
    */
   async cambiarPassword(req: NextRequest): Promise<NextResponse> {
-    const session = await getServerSession(authOptions);
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const { currentPassword, newPassword } = await req.json();
-    if (!currentPassword || !newPassword) {
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 });
+    const { currentPassword, newPassword } = body;
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
       return NextResponse.json({ error: 'Contraseña actual y nueva son obligatorias' }, { status: 400 });
+    }
+    if (Buffer.byteLength(currentPassword, 'utf8') > MAX_PASSWORD_BYTES) return NextResponse.json({ error: 'Contraseña actual inválida' }, { status: 422 });
+    if (!await LimiteAccesoRepo.consumir('cambiar-password', session.user.id, 10, 15 * 60_000)) {
+      return NextResponse.json({ error: 'Demasiados intentos. Espere 15 minutos.' }, { status: 429, headers: { 'Retry-After': '900' } });
     }
 
     // Regla 1: Verificar contraseña actual (Capa 3 accede al hash)
-    const userId = (session.user as any).id;
-    const userWithHash = await UserRepository.findByEmailWithPassword((session.user as any).email ?? '');
+    const userId = session.user.id;
+    const userWithHash = await UserRepository.findByIdWithPassword(userId);
     if (!userWithHash) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
@@ -134,7 +154,9 @@ export const PerfilController = {
 
     // Actualizar hash en la base de datos (Capa 3)
     const newHash = await AuthService.hashPassword(newPassword);
-    await UserRepository.update(userId, { passwordHash: newHash });
+    if (!await getAuthenticatedSession() || !await UserRepository.changePassword(userId, userWithHash.passwordHash, userWithHash.sessionVersion, newHash)) {
+      return NextResponse.json({ error: 'La sesión o contraseña cambió. Ingrese nuevamente.' }, { status: 409 });
+    }
 
     return NextResponse.json({ message: 'Contraseña actualizada exitosamente' });
   },

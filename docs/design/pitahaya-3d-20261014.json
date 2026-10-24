@@ -1,0 +1,47 @@
+{
+  "asset": "public/brand/pitahaya-amarilla-20261014.glb",
+  "createdAt": "2026-10-14",
+  "kind": "Three-dimensional artistic adaptation informed by photographic reconstruction",
+  "exactScanOfYellowFruit": false,
+  "prototype": { "bytes": 4320660, "vertices": 61473, "triangles": 118208, "tubercles": 54, "visualAcceptance": "Independent review: rebuild; realism not approved; user chose photorealistic image as default and deferred the model", "enabledByDefault": false, "localExperimentalServerFlag": "JIRAH_AUTH_3D_PROTOTYPE=true" },
+  "photographs": {
+    "origin": "58 photographs of a pink pitahaya supplied by the user in img/",
+    "registeredImages": 47,
+    "sparsePoints": 8156,
+    "meanReprojectionErrorPixels": 0.6117298681137202,
+    "estimatedAzimuthCoverageDegrees": 333.723,
+    "method": "Masked CPU COLMAP reconstruction followed by a conservative visual hull and a measured radial profile",
+    "measuredProfile": "docs/design/pitahaya-photo-profile-20261014.json",
+    "limitations": "Reprojection error measures camera consistency, not exact surface fidelity. The poles and gaps need artistic repair; pink-fruit photographs cannot document the morphology of the yellow cultivar."
+  },
+  "adaptation": {
+    "method": "Repair the photographic profile, adapt the proportions, replace long pink-cultivar bracts with yellow-cultivar tubercles, and author stem/scar details",
+    "colour": "Yellow cultivar; no pink photo texture recoloured or presented as a yellow-fruit scan",
+    "generator": "scripts/assets/build-yellow-pitahaya.py"
+  },
+  "texture": {
+    "source": "docs/design/pitahaya-skin-source-20261014.png",
+    "origin": "Generated with the built-in image generation tool; diffuse epidermis texture only",
+    "prompt": "Create a production PBR base-color texture for the epidermis of ripe ECUADORIAN YELLOW PITAHAYA (Selenicereus megalanthus). This is a 3D MATERIAL TEXTURE, not a picture of a fruit and not a UI mockup. Square, edge-to-edge uniform macro skin sample, seamlessly tileable on both axes. Rich natural golden yellow with gentle lemon-yellow variation, tiny irregular olive-brown pores, subtle translucent waxy skin and very fine organic wrinkles. Photographic microscopic surface detail, realistic and fresh, tasteful restrained brown speckling less than 2% coverage. Completely flat diffuse lighting with NO directional shadows, NO specular highlights, NO ambient occlusion, NO large bumps/tubercles, NO scales or leaves, NO objects, NO border, NO text, NO background. The geometric fruit lobes will be supplied separately in a real mesh. Keep overall colour even and golden; avoid orange/red/pink, avoid metallic gold, avoid graphic illustration, avoid large spots, avoid plastic. High-detail surface suitable for a close-up 3D fruit rotating in a sophisticated agricultural app login.",
+    "runtimePackaging": "JPEG embedded in the self-contained GLB; original PNG retained as the reproducible source"
+  },
+  "surfaceData": {
+    "normal": "docs/design/pitahaya-normal-20261014.png",
+    "metallicRoughness": "docs/design/pitahaya-roughness-20261014.png",
+    "origin": "Procedural numeric data from wrapped seeded noise (20261014), authored by scripts/assets/build-yellow-pitahaya.py; not photographs or AI-generated images",
+    "normalEncoding": "RGB tangent-space normal; glTF convention",
+    "roughnessEncoding": "G contains roughness; B contains zero metalness"
+  },
+  "resources": {
+    "purchasedAssets": false,
+    "downloadedThirdPartyFruitAssets": false,
+    "runtime": "Three.js 0.186.1; GLTFLoader; RoomEnvironment",
+    "reconstruction": "pycolmap 4.2.1, OpenCV headless 5.0.0.93, NumPy 2.5.4, SciPy 1.18.1, trimesh 5.1.1, scikit-image 0.26.0, lazy-loader 0.6; local CPU processing"
+  },
+  "references": [
+    { "url": "https://cornrevolution.resn.global/", "use": "User-selected composition and floating-object reference; no assets copied" },
+    { "url": "https://colmap.github.io/", "use": "Official reconstruction documentation" },
+    { "url": "https://threejs.org/docs/", "use": "Official rendering and GLTF documentation" },
+    { "url": "https://repositorio.iniap.gob.ec/items/531bf29d-c7ab-4db4-8e09-e3369a93d883", "use": "Botanical context; existing fact sources remain in docs/design/acceso.md" }
+  ]
+}

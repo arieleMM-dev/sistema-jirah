@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -41,7 +42,16 @@ yarn-error.log*
 next-env.d.ts
 
 # base de datos y prisma
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 prisma/dev.db
 prisma/dev.db-journal
 *.sqlite
 *.sqlite3
+/prisma/backups/
+
+# Capturas y decisiones efímeras de revisión visual
+/.impeccable/review/
+/.impeccable/questions/

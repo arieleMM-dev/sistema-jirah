@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 export type KgPorLote = { codigo: string; kg: number; alertas: number };
 export type Actividad = {
@@ -27,34 +27,23 @@ export function useDashboardStats() {
   const [loteId, setLoteId] = useState('');
   const [campanaId, setCampanaId] = useState('');
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      if (fechaDesde) params.set('fechaDesde', fechaDesde);
-      if (fechaHasta) params.set('fechaHasta', fechaHasta);
-      if (loteId) params.set('loteId', loteId);
-      if (campanaId) params.set('campanaId', campanaId);
-      
-      const res = await fetch(`/api/dashboard/stats?${params}`);
-      if (!res.ok) {
-        throw new Error('Error al cargar estadísticas');
-      }
-      const data = await res.json();
-      setStats(data);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const [revision, setRevision] = useState(0);
   useEffect(() => {
-    load();
-  }, [fechaDesde, fechaHasta, loteId, campanaId]);
+    const controller = new AbortController();
+    const params = new URLSearchParams(Object.entries({ fechaDesde, fechaHasta, loteId, campanaId }).filter(([, value]) => value));
+    void fetch('/api/dashboard/stats?' + params, { signal: controller.signal }).then(async response => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? 'No se pudieron cargar los indicadores.');
+      setStats(data); setError(null);
+    }).catch((e: unknown) => {
+      if (!controller.signal.aborted) { setStats(null); setError(e instanceof Error ? e.message : 'Error de conexión'); }
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [fechaDesde, fechaHasta, loteId, campanaId, revision]);
 
+  const changed = (setter: (value: string) => void) => (value: string) => { setLoading(true); setError(null); setter(value); };
   const clearFilters = () => {
+    setLoading(true);
     setFechaDesde('');
     setFechaHasta('');
     setLoteId('');
@@ -66,7 +55,7 @@ export function useDashboardStats() {
     loading,
     error,
     filters: { fechaDesde, fechaHasta, loteId, campanaId },
-    setFilters: { setFechaDesde, setFechaHasta, setLoteId, setCampanaId, clearFilters },
-    reload: load
+    setFilters: { setFechaDesde: changed(setFechaDesde), setFechaHasta: changed(setFechaHasta), setLoteId: changed(setLoteId), setCampanaId: changed(setCampanaId), clearFilters },
+    reload: () => { setLoading(true); setRevision(n => n + 1); }
   };
 }

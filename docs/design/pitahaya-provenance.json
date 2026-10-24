@@ -1,0 +1,9 @@
+{
+  "asset": "public/brand/pitahaya-amarilla.webp",
+  "kind": "generated",
+  "tool": "image_gen.imagegen (built-in)",
+  "date": "2026-10-10",
+  "prompt": "Use case: stylized-concept / product illustration. Create a single exquisite yellow pitahaya (yellow dragon fruit, Selenicereus megalanthus) whole uncut fruit, standing almost upright with a slight diagonal lean, isolated on truly transparent background. This is an art-directed hero asset for the login screen of Finca JIRAH, a real Ecuadorian farm harvest traceability app. Botanical silhouette must be recognizable: ripe warm golden yellow oblong slightly pear shaped rind, pronounced irregular bulbous scales and small short green-tipped triangular bracts, short little green stem. Yellow variety, never pink or red dragonfruit; not a pineapple, not a lemon, no oversized curling leaves. Hyper-detailed tactile skin with tiny organic speckles, refined photorealistic 3D studio product render, soft sculptural light from upper left, believable subsurface yellow warmth, soft natural shade on opposite side, elegant and friendly without cartoon eyes. One fruit only, centered and entirely visible with generous clean transparent margin. Camera three-quarter portrait product view, beautiful sculptural volume. No ground, no platform, no scene, no shadow baked outside fruit, no labels, no lettering, no logo, no UI, no extra fruit or cut slices. Output image intended to sit around 400px tall on a pale yellow background. Use portrait 3:4 aspect ratio. Preserve true transparent alpha.",
+  "source": "C:/Users/ariel/.codex/generated_images/01a0f88f-2d31-7041-912d-65157d7dc123/exec-2373d76d-b1b7-4ea9-831b-4210e571866c.png",
+  "processing": "Sharp: preserve alpha; resize height 1000px; WebP quality 85. Asset is a still image, not a 3D model."
+}
